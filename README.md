@@ -14,6 +14,12 @@ Requires Node.js 22.21 or newer. From this folder:
 
 Inventory records and task history are stored in this browser on this device. Clearing this browser's site data removes them. This prototype does not yet synchronize between devices or estimate fulfillment timing.
 
+## Phase 3 inventory model
+
+The browser keeps four related records: inventory items (name, location reference, and units on hand), locations (reusable names), restock tasks (item/location snapshots, quantity before and after, and pending/returned/shelf-restocked status), and activity entries (a separate history of additions and task actions). Reusing a location name links another inventory item to the same location.
+
+On first load after this model update, earlier Phase 1 records are converted in place and the original saved text is retained in this browser under `lookout.inventory.v1.before-phase-3`. The current `lookout.inventory.v1` key stays local to this browser; no database or network sync is added. Restock tasks describe only shelf replenishment. Store detection and investigation, including theft review or reinstatement, are separate future workflows and are not modeled by these task statuses.
+
 ## Verify inventory rules
 
 Run `npm test` to exercise the deterministic inventory and reconciliation rules with Node's built-in test runner.

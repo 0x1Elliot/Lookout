@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getServerConfig, loadLocalEnv } from './server/config.js';
 import { getPublicAsset } from './server/public-assets.js';
