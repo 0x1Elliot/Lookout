@@ -21,3 +21,8 @@ Run `npm test` to exercise the deterministic inventory and reconciliation rules 
 ## Environment configuration
 
 `.env.example` documents the future server-side Anthropic key setting. Copy it to `.env` only when a later phase adds server-side API integration. `.env` is ignored by Git. Never expose an API key in browser code, screenshots, commits, or chat. No API key is needed for this phase.
+
+
+## Development Notes
+
+Testing my first README update commit.
