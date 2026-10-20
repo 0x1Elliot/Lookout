@@ -4,7 +4,7 @@ Lookout is an inventory visibility and reconciliation prototype. This first phas
 
 ## Run it
 
-Requires Node.js 20 or newer. From this folder:
+Requires Node.js 22.21 or newer. From this folder:
 
 1. Run `npm start`.
 2. Open the local address printed in the terminal (by default `http://127.0.0.1:4173`).
@@ -20,7 +20,11 @@ Run `npm test` to exercise the deterministic inventory and reconciliation rules 
 
 ## Environment configuration
 
-`.env.example` documents the future server-side Anthropic key setting. Copy it to `.env` only when a later phase adds server-side API integration. `.env` is ignored by Git. Never expose an API key in browser code, screenshots, commits, or chat. No API key is needed for this phase.
+At startup, the server reads a local `.env` file when one exists. `.env.example` documents `PORT` and the future server-side Anthropic key setting. `.env`, `.env.*`, and other local environment files are ignored by Git; `.env.example` is the only exception. No `.env` file or Anthropic key is needed for this phase.
+
+`PORT` must be a whole number from 1 to 65535; it defaults to `4173`. The optional Anthropic key is read only by the server configuration module. The app does not use the key yet, and the static web server serves only its explicit list of browser files, not `.env` or server source. When a later phase adds an API route, create `.env` locally and enter the key there; do not put it in browser code, commits, screenshots, or chat.
+
+Node's built-in `.env` loader is used, so no environment package or API integration is installed in this phase.
 
 
 ## Development Notes

@@ -1,9 +1,13 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getServerConfig, loadLocalEnv } from './server/config.js';
+import { getPublicAsset } from './server/public-assets.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+loadLocalEnv();
+const config = getServerConfig();
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -13,15 +17,15 @@ const contentTypes = {
 
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
-  const requestedPath = pathname === '/' ? '/index.html' : pathname;
-  const filePath = normalize(join(root, requestedPath));
+  const publicFile = getPublicAsset(pathname);
 
-  if (!filePath.startsWith(root)) {
-    response.writeHead(403).end('Forbidden');
+  if (!publicFile) {
+    response.writeHead(404).end('Not found');
     return;
   }
 
   try {
+    const filePath = join(root, publicFile);
     const body = await readFile(filePath);
     response.writeHead(200, { 'content-type': contentTypes[extname(filePath)] ?? 'application/octet-stream' });
     response.end(body);
@@ -30,7 +34,6 @@ const server = createServer(async (request, response) => {
   }
 });
 
-const port = Number(process.env.PORT ?? 4173);
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Lookout is running at http://127.0.0.1:${port}`);
+server.listen(config.port, '127.0.0.1', () => {
+  console.log(`Lookout is running at http://127.0.0.1:${config.port}`);
 });
