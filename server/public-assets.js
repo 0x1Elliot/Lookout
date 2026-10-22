@@ -3,6 +3,7 @@ const publicAssets = new Map([
   ['/index.html', 'index.html'],
   ['/app.js', 'app.js'],
   ['/inventory.js', 'inventory.js'],
+  ['/inventory-storage.js', 'inventory-storage.js'],
   ['/styles.css', 'styles.css'],
 ]);
 

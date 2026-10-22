@@ -89,6 +89,32 @@ export function addInventoryItem(state, { name, count, location }, { idFactory =
   };
 }
 
+export function restockInventoryItem(state, itemId, quantity, { idFactory = newId, now = () => new Date().toISOString() } = {}) {
+  const units = requireQuantity(quantity, 'Quantity');
+  const item = state.inventoryItems.find((candidate) => candidate.id === itemId);
+  if (!item) throw new Error('Choose an inventory item.');
+  const location = state.locations.find((candidate) => candidate.id === item.locationId);
+  if (!location) throw new Error('The inventory item location could not be found.');
+  const quantityAfter = item.quantityOnHand + units;
+  if (!Number.isSafeInteger(quantityAfter)) throw new Error('Restocked units would exceed the supported inventory count.');
+  const event = makeActivity({
+    idFactory,
+    type: 'inventory-item-restocked',
+    item,
+    location,
+    quantity: units,
+    quantityRemaining: quantityAfter,
+    createdAt: now(),
+  });
+  return {
+    ...state,
+    inventoryItems: state.inventoryItems.map((candidate) => candidate.id === item.id
+      ? { ...candidate, quantityOnHand: quantityAfter }
+      : candidate),
+    activity: [event, ...state.activity],
+  };
+}
+
 export function beginRestock(state, itemId, quantity, { idFactory = newId, now = () => new Date().toISOString() } = {}) {
   const units = requireQuantity(quantity, 'Quantity');
   const item = state.inventoryItems.find((candidate) => candidate.id === itemId);
@@ -291,11 +317,11 @@ function validateInventoryState(state) {
     tasksById.set(task.id, task);
   }
 
-  const activityTypes = new Set(['inventory-item-added', 'restock-started', 'returned', 'shelf-restocked']);
+  const activityTypes = new Set(['inventory-item-added', 'inventory-item-restocked', 'restock-started', 'returned', 'shelf-restocked']);
   const activityIds = new Set();
   for (const entry of state.activity) {
     const task = entry?.taskId === undefined ? undefined : tasksById.get(entry.taskId);
-    const isTaskActivity = entry?.type !== 'inventory-item-added';
+    const isTaskActivity = !['inventory-item-added', 'inventory-item-restocked'].includes(entry?.type);
     if (!entry?.id || !activityTypes.has(entry.type) || !itemIds.has(entry.itemId) || !locationIds.has(entry.locationId)
       || (isTaskActivity && !task)
       || (task && (task.itemId !== entry.itemId || task.locationId !== entry.locationId))
