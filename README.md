@@ -24,6 +24,12 @@ On first load after this model update, earlier Phase 1 records are converted in 
 
 Run `npm test` to exercise the deterministic inventory and reconciliation rules with Node's built-in test runner.
 
+## Phase 5 agent context API
+
+`POST /api/agent/context` accepts a JSON body containing the complete Phase 3 inventory state (`schemaVersion: 2` with `inventoryItems`, `locations`, `restockTasks`, and `activity` arrays). It returns only `{ items, pendingTasks, recentActivity }`: item stock and location, pending shelf-restock tasks, and up to 20 recent activity records. The endpoint is read-only and does not call an AI provider. It returns `405` for other methods, `415` for a non-JSON content type, `400` for malformed JSON or unsupported/invalid inventory, and `413` when the request exceeds 1 MB. Successful responses use `application/json`.
+
+Run `npm run demo:agent-context` to exercise the same route handler in-process without opening a network port. The demo uses sample inventory and prints the response. `ANTHROPIC_API_KEY` remains optional and server-side; Phase 5 does not send it anywhere or expose it to browser assets.
+
 ## Environment configuration
 
 At startup, the server reads a local `.env` file when one exists. `.env.example` documents `PORT` and the future server-side Anthropic key setting. `.env`, `.env.*`, and other local environment files are ignored by Git; `.env.example` is the only exception. No `.env` file or Anthropic key is needed for this phase.

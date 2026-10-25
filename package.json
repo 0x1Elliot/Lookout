@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
+    "demo:agent-context": "node scripts/demo-agent-context.mjs",
     "test": "node --test"
   }
 }
