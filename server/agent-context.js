@@ -4,6 +4,7 @@ const activityTypes = new Set([
   'restock-started',
   'returned',
   'shelf-restocked',
+  'inventory-count-adjusted',
 ]);
 
 export function createAgentInventoryContext(value) {
@@ -63,6 +64,15 @@ export function createAgentInventoryContext(value) {
       location: entry.locationName,
       quantity: entry.quantity,
       createdAt: entry.createdAt,
+      ...(entry.type === 'inventory-count-adjusted' ? {
+        eventId: entry.eventId,
+        caseId: entry.caseId,
+        actionRequestId: entry.actionRequestId,
+        reviewerId: entry.reviewerId,
+        previousQuantity: entry.previousQuantity,
+        quantityOnHand: entry.quantityRemaining,
+        evidenceIds: entry.evidenceIds,
+      } : {}),
     };
   });
 

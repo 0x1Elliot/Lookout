@@ -97,6 +97,7 @@ function renderTasks() {
 function activityMessage(entry) {
   if (entry.type === 'inventory-item-added') return `Inventory added · ${entry.itemName} · ${entry.quantity} ${entry.quantity === 1 ? 'unit' : 'units'} at ${entry.locationName}`;
   if (entry.type === 'inventory-item-restocked') return `Items restocked · ${entry.quantity} ${entry.quantity === 1 ? 'unit' : 'units'} added to ${entry.itemName} at ${entry.locationName}`;
+  if (entry.type === 'inventory-count-adjusted') return `Verified count updated · ${entry.itemName} · ${entry.previousQuantity} → ${entry.quantityRemaining} at ${entry.locationName} after human review`;
   if (entry.type === 'restock-started') return `Restock started · ${entry.quantity} ${entry.itemName} moved from ${entry.locationName}`;
   if (entry.type === 'returned') return `Returned · ${entry.quantity} ${entry.itemName} restored to ${entry.locationName}`;
   if (entry.type === 'shelf-restocked') return `Shelf restocked · ${entry.quantity} ${entry.itemName} from ${entry.locationName}`;

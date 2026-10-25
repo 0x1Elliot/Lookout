@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node server.mjs",
     "demo:agent-context": "node scripts/demo-agent-context.mjs",
+    "demo:agent-workflow": "node scripts/demo-agent-workflow.mjs",
     "test": "node --test"
   }
 }
