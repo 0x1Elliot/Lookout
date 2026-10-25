@@ -89,6 +89,75 @@ export function addInventoryItem(state, { name, count, location }, { idFactory =
   };
 }
 
+export function restockInventoryItem(state, itemId, quantity, { idFactory = newId, now = () => new Date().toISOString() } = {}) {
+  const units = requireQuantity(quantity, 'Quantity');
+  const item = state.inventoryItems.find((candidate) => candidate.id === itemId);
+  if (!item) throw new Error('Choose an inventory item.');
+  const location = state.locations.find((candidate) => candidate.id === item.locationId);
+  if (!location) throw new Error('The inventory item location could not be found.');
+  const quantityAfter = item.quantityOnHand + units;
+  if (!Number.isSafeInteger(quantityAfter)) throw new Error('Restocked units would exceed the supported inventory count.');
+  const event = makeActivity({
+    idFactory,
+    type: 'inventory-item-restocked',
+    item,
+    location,
+    quantity: units,
+    quantityRemaining: quantityAfter,
+    createdAt: now(),
+  });
+  return {
+    ...state,
+    inventoryItems: state.inventoryItems.map((candidate) => candidate.id === item.id
+      ? { ...candidate, quantityOnHand: quantityAfter }
+      : candidate),
+    activity: [event, ...state.activity],
+  };
+}
+
+export function adjustInventoryCount(state, itemId, count, {
+  caseId, eventId, actionRequestId, reviewerId, evidenceIds,
+  idFactory = newId, now = () => new Date().toISOString(),
+} = {}) {
+  const quantityOnHand = requireQuantity(count, 'Verified unit count', { allowZero: true });
+  const item = state.inventoryItems.find((candidate) => candidate.id === itemId);
+  if (!item) throw new Error('Choose an inventory item.');
+  const location = state.locations.find((candidate) => candidate.id === item.locationId);
+  if (!location) throw new Error('The inventory item location could not be found.');
+  if (![caseId, eventId, actionRequestId, reviewerId].every((value) => typeof value === 'string' && value.trim())
+    || !Array.isArray(evidenceIds) || evidenceIds.length === 0
+    || evidenceIds.some((value) => typeof value !== 'string' || !value.trim())) {
+    throw new Error('An approved case, reviewer, request ID, and evidence are required to adjust inventory.');
+  }
+  if (quantityOnHand === item.quantityOnHand) throw new Error('The verified count already matches inventory.');
+
+  const activity = {
+    id: idFactory(),
+    type: 'inventory-count-adjusted',
+    itemId: item.id,
+    itemName: item.name,
+    locationId: location.id,
+    locationName: location.name,
+    quantity: Math.abs(quantityOnHand - item.quantityOnHand),
+    quantityRemaining: quantityOnHand,
+    previousQuantity: item.quantityOnHand,
+    caseId,
+    eventId,
+    actionRequestId,
+    reviewerId,
+    evidenceIds: [...evidenceIds],
+    createdAt: now(),
+  };
+
+  return {
+    ...state,
+    inventoryItems: state.inventoryItems.map((candidate) => candidate.id === item.id
+      ? { ...candidate, quantityOnHand }
+      : candidate),
+    activity: [activity, ...state.activity],
+  };
+}
+
 export function beginRestock(state, itemId, quantity, { idFactory = newId, now = () => new Date().toISOString() } = {}) {
   const units = requireQuantity(quantity, 'Quantity');
   const item = state.inventoryItems.find((candidate) => candidate.id === itemId);
@@ -291,15 +360,21 @@ function validateInventoryState(state) {
     tasksById.set(task.id, task);
   }
 
-  const activityTypes = new Set(['inventory-item-added', 'restock-started', 'returned', 'shelf-restocked']);
+  const activityTypes = new Set(['inventory-item-added', 'inventory-item-restocked', 'restock-started', 'returned', 'shelf-restocked', 'inventory-count-adjusted']);
   const activityIds = new Set();
   for (const entry of state.activity) {
     const task = entry?.taskId === undefined ? undefined : tasksById.get(entry.taskId);
-    const isTaskActivity = entry?.type !== 'inventory-item-added';
+    const isTaskActivity = ['restock-started', 'returned', 'shelf-restocked'].includes(entry?.type);
+    const isCountAdjustment = entry?.type === 'inventory-count-adjusted';
     if (!entry?.id || !activityTypes.has(entry.type) || !itemIds.has(entry.itemId) || !locationIds.has(entry.locationId)
       || (isTaskActivity && !task)
       || (task && (task.itemId !== entry.itemId || task.locationId !== entry.locationId))
       || (!isTaskActivity && entry.taskId !== undefined)
+      || (isCountAdjustment && (![entry.caseId, entry.eventId, entry.actionRequestId, entry.reviewerId].every((value) => typeof value === 'string' && value.trim())
+        || !Array.isArray(entry.evidenceIds) || entry.evidenceIds.length === 0
+        || entry.evidenceIds.some((value) => typeof value !== 'string' || !value.trim())
+        || !Number.isSafeInteger(entry.previousQuantity) || entry.previousQuantity < 0
+        || entry.quantityRemaining === entry.previousQuantity))
       || !cleanText(entry.itemName) || !cleanText(entry.locationName)
       || !Number.isSafeInteger(entry.quantity) || entry.quantity < 0
       || (entry.quantityRemaining !== undefined && (!Number.isSafeInteger(entry.quantityRemaining) || entry.quantityRemaining < 0))

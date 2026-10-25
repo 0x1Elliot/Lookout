@@ -1,34 +1,26 @@
+import { mountAgentOperations } from './agent-operations.js';
 import {
   addInventoryItem,
   beginRestock,
   createEmptyInventoryState,
-  normalizeInventoryState,
   reconcileTask,
+  restockInventoryItem,
 } from './inventory.js';
-
-const STORAGE_KEY = 'lookout.inventory.v1';
-const BACKUP_KEY = `${STORAGE_KEY}.before-phase-3`;
+import { loadInventoryState, saveInventoryState } from './inventory-storage.js';
 let stateLoadError;
 let state = loadState();
 const itemForm = document.querySelector('#item-form');
 const restockForm = document.querySelector('#restock-form');
+const inventoryRestockForm = document.querySelector('#inventory-restock-form');
 const itemSelect = document.querySelector('#restock-item');
+const inventoryRestockSelect = document.querySelector('#inventory-restock-item');
 const itemList = document.querySelector('#inventory-list');
 const taskList = document.querySelector('#task-list');
 const notice = document.querySelector('#notice');
 
 function loadState() {
   try {
-    const serialized = localStorage.getItem(STORAGE_KEY);
-    if (serialized === null) return createEmptyInventoryState();
-
-    const stored = JSON.parse(serialized);
-    const normalized = normalizeInventoryState(stored);
-    if (stored.schemaVersion !== normalized.schemaVersion) {
-      if (localStorage.getItem(BACKUP_KEY) === null) localStorage.setItem(BACKUP_KEY, serialized);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-    }
-    return normalized;
+    return loadInventoryState(localStorage);
   } catch (error) {
     stateLoadError = error;
     return createEmptyInventoryState();
@@ -36,7 +28,7 @@ function loadState() {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveInventoryState(localStorage, state);
 }
 
 function showNotice(message, kind = 'success') {
@@ -59,16 +51,20 @@ function locationFor(item) {
 function renderItems() {
   itemList.replaceChildren();
   itemSelect.replaceChildren(new Option('Select an item', ''));
+  inventoryRestockSelect.replaceChildren(new Option('Select an item', ''));
   for (const item of state.inventoryItems) {
     const location = locationFor(item);
     const row = element('article', 'inventory-card');
     const details = element('div');
     details.append(element('h3', '', item.name), element('p', 'muted', `Stored at ${location?.name ?? 'Location unavailable'}`));
+    const stock = element('div', 'stock-summary');
     const count = element('strong', 'unit-count', String(item.quantityOnHand));
-    count.setAttribute('aria-label', `${item.quantityOnHand} units available`);
-    row.append(details, count);
+    count.setAttribute('aria-label', `${item.quantityOnHand} units on hand`);
+    stock.append(count, element('span', 'stock-caption', 'on hand'));
+    row.append(details, stock);
     itemList.append(row);
     itemSelect.add(new Option(`${item.name} · ${item.quantityOnHand} available · ${location?.name ?? 'location unavailable'}`, item.id));
+    inventoryRestockSelect.add(new Option(`${item.name} · ${item.quantityOnHand} on hand · ${location?.name ?? 'location unavailable'}`, item.id));
   }
   document.querySelector('#empty-inventory').hidden = state.inventoryItems.length > 0;
 }
@@ -82,8 +78,9 @@ function renderTasks() {
     const summary = element('div');
     summary.append(
       element('h3', '', task.itemName),
-      element('p', 'muted', `${task.quantity} units taken from ${task.locationName}`),
-      element('p', 'math-line', `${task.quantityBefore} − ${task.quantity} = ${task.quantityAfter} units remaining`),
+      element('p', 'muted', `From ${task.locationName} · ${task.quantity} ${task.quantity === 1 ? 'unit' : 'units'} moved`),
+      element('p', 'math-line', `${task.quantityBefore} − ${task.quantity} = ${task.quantityAfter} on hand`),
+      element('p', 'task-guidance', 'Choose Returned to restore these units, or Shelf restocked to keep the deduction.'),
     );
     const actions = element('div', 'task-actions');
     const returned = element('button', 'button button-secondary', 'Returned');
@@ -99,9 +96,11 @@ function renderTasks() {
 }
 
 function activityMessage(entry) {
-  if (entry.type === 'inventory-item-added') return `Added ${entry.itemName} · ${entry.quantity} units at ${entry.locationName}`;
-  if (entry.type === 'restock-started') return `Started shelf restock · ${entry.quantity} ${entry.itemName} from ${entry.locationName}`;
-  if (entry.type === 'returned') return `Returned ${entry.quantity} ${entry.itemName} to ${entry.locationName}`;
+  if (entry.type === 'inventory-item-added') return `Inventory added · ${entry.itemName} · ${entry.quantity} ${entry.quantity === 1 ? 'unit' : 'units'} at ${entry.locationName}`;
+  if (entry.type === 'inventory-item-restocked') return `Items restocked · ${entry.quantity} ${entry.quantity === 1 ? 'unit' : 'units'} added to ${entry.itemName} at ${entry.locationName}`;
+  if (entry.type === 'inventory-count-adjusted') return `Verified count updated · ${entry.itemName} · ${entry.previousQuantity} → ${entry.quantityRemaining} at ${entry.locationName} after human review`;
+  if (entry.type === 'restock-started') return `Restock started · ${entry.quantity} ${entry.itemName} moved from ${entry.locationName}`;
+  if (entry.type === 'returned') return `Returned · ${entry.quantity} ${entry.itemName} restored to ${entry.locationName}`;
   if (entry.type === 'shelf-restocked') return `Shelf restocked · ${entry.quantity} ${entry.itemName} from ${entry.locationName}`;
   return 'Inventory activity recorded';
 }
@@ -114,21 +113,24 @@ function renderActivity() {
     const row = element('article', 'history-card');
     const details = element('div');
     const remaining = Number.isSafeInteger(entry.quantityRemaining)
-      ? `${entry.quantityRemaining} units remain in recorded inventory · `
+      ? `${entry.quantityRemaining} ${entry.quantityRemaining === 1 ? 'unit' : 'units'} on hand afterward · `
       : '';
     details.append(
       element('div', '', activityMessage(entry)),
       element('p', 'muted', `${remaining}${new Date(entry.createdAt).toLocaleString()}`),
     );
     row.append(details);
+    row.dataset.activityType = entry.type;
     historyList.append(row);
   }
 }
 
+let agentOperations;
 function render() {
   renderItems();
   renderTasks();
   renderActivity();
+  agentOperations?.refresh();
 }
 
 function finishTask(taskId, outcome) {
@@ -156,6 +158,21 @@ itemForm.addEventListener('submit', (event) => {
   }
 });
 
+inventoryRestockForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  try {
+    const form = new FormData(inventoryRestockForm);
+    state = restockInventoryItem(state, form.get('itemId'), form.get('quantity'));
+    saveState();
+    const entry = state.activity[0];
+    inventoryRestockForm.reset();
+    render();
+    showNotice(`${entry.quantity} ${entry.quantity === 1 ? 'unit' : 'units'} added to ${entry.itemName}. ${entry.quantityRemaining} on hand.`);
+  } catch (error) {
+    showNotice(error.message, 'error');
+  }
+});
+
 restockForm.addEventListener('submit', (event) => {
   event.preventDefault();
   try {
@@ -175,5 +192,25 @@ render();
 if (stateLoadError) {
   itemForm.querySelectorAll('input, button').forEach((control) => { control.disabled = true; });
   restockForm.querySelectorAll('select, input, button').forEach((control) => { control.disabled = true; });
+  inventoryRestockForm.querySelectorAll('select, input, button').forEach((control) => { control.disabled = true; });
   showNotice('Saved inventory could not be read and was left unchanged. The editing controls are disabled to protect that data.', 'error');
 }
+
+agentOperations = mountAgentOperations({
+  getInventory: () => state,
+  updateInventory(next) {
+    // Persist first: storage failure must not silently claim success.
+    saveInventoryState(localStorage, next);
+    state = next;
+    render();
+  },
+  addSample() {
+    const stateBeforeSample = new Set(state.inventoryItems.map(item => item.id));
+    const next = addInventoryItem(state, { name: 'Synthetic demo notebooks', count: 8, location: 'Demo back room' });
+    saveInventoryState(localStorage, next);
+    state = next;
+    render();
+    return next.inventoryItems.find(item => !stateBeforeSample.has(item.id));
+  },
+  disabled: Boolean(stateLoadError),
+});

@@ -6,6 +6,7 @@ import {
   createEmptyInventoryState,
   normalizeInventoryState,
   reconcileTask,
+  restockInventoryItem,
 } from './inventory.js';
 
 function makeIdFactory() {
@@ -48,6 +49,30 @@ test('rejects invalid item names, locations, and recorded quantities', () => {
   assert.throws(() => addInventoryItem(state, { name: 'Pens', count: '-1', location: 'Shelf A' }), /whole number/);
   assert.throws(() => addInventoryItem(state, { name: 'Pens', count: '1.5', location: 'Shelf A' }), /whole number/);
   assert.throws(() => addInventoryItem(state, { name: 'Pens', count: '0x10', location: 'Shelf A' }), /whole number/);
+});
+
+test('records received stock by increasing on-hand quantity and adding activity', () => {
+  const original = makeState(3);
+  const itemId = original.inventoryItems[0].id;
+  const updated = restockInventoryItem(original, itemId, '5', {
+    idFactory: makeIdFactory(),
+    now: () => '2026-10-20T12:15:00.000Z',
+  });
+
+  assert.equal(original.inventoryItems[0].quantityOnHand, 3);
+  assert.equal(updated.inventoryItems[0].quantityOnHand, 8);
+  assert.equal(updated.activity[0].type, 'inventory-item-restocked');
+  assert.equal(updated.activity[0].quantity, 5);
+  assert.equal(updated.activity[0].quantityRemaining, 8);
+  assert.equal(normalizeInventoryState(updated), updated);
+});
+
+test('rejects invalid received-stock requests and unsafe inventory totals', () => {
+  const state = makeState(Number.MAX_SAFE_INTEGER);
+  const itemId = state.inventoryItems[0].id;
+  assert.throws(() => restockInventoryItem(state, 'missing-item', 1), /Choose an inventory item/);
+  assert.throws(() => restockInventoryItem(state, itemId, '0'), /positive whole number/);
+  assert.throws(() => restockInventoryItem(state, itemId, 1), /exceed the supported inventory count/);
 });
 
 test('starting a restock deducts units immediately and records a pending task and activity', () => {

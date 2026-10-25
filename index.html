@@ -25,10 +25,33 @@
 
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 
+      <section class="panel agent-panel" aria-labelledby="agent-title">
+        <p class="eyebrow">DETERMINISTIC LOCAL PROTOTYPE</p><h2 id="agent-title">Agent Operations</h2>
+        <p>Synthetic test events only. Four application stages; no live sensors or LLM calls. Your approval can update this browser’s inventory.</p>
+        <div class="agent-stages" id="agent-stages" aria-label="Workflow stages"></div>
+        <form id="agent-event-form" class="form-grid">
+          <label class="field">Inventory item<select id="agent-item" required></select></label>
+          <label class="field">Synthetic observed count<input id="agent-count" type="number" min="0" step="1" required value="5"></label>
+          <button class="button button-primary" id="agent-trigger">Run synthetic test event</button>
+          <button class="button button-secondary" type="button" id="agent-sample">Add sample item (8 units)</button>
+        </form>
+        <div id="agent-status" role="status" aria-live="polite">Choose an item or add a sample to begin.</div>
+        <div id="agent-evidence"></div>
+        <form id="agent-review-form" class="form-grid" hidden>
+          <label class="field">Reviewer name<input id="agent-reviewer" required maxlength="100" placeholder="Your name"></label>
+          <label class="field">Reason<input id="agent-reason" required maxlength="200" placeholder="Why approve or reject this test count?"></label>
+          <button class="button button-primary" name="outcome" value="approve">Approve count</button>
+          <button class="button button-secondary" name="outcome" value="reject">Reject count</button>
+        </form>
+        <button id="agent-apply" class="button button-primary" type="button" hidden>Apply approved count to inventory</button>
+        <details><summary>Workflow and audit details</summary><pre id="agent-audit">No event yet.</pre></details>
+        <p class="muted">Workflow records live in server memory and reset on restart. Inventory is saved in this browser. Reloading starts a new dashboard session. Reviewer names are self-reported, not authenticated.</p>
+      </section>
+
       <section class="content-grid">
         <div class="column">
           <section class="panel">
-            <div class="section-heading"><div><p class="eyebrow">YOUR ITEMS</p><h2>Inventory</h2></div><span class="subtle-label">Recorded units</span></div>
+            <div class="section-heading"><div><p class="eyebrow">YOUR ITEMS</p><h2>Inventory</h2></div><span class="subtle-label">On hand · storage location</span></div>
             <div id="inventory-list" class="inventory-list"></div>
             <p id="empty-inventory" class="empty-state">Add an item with its recorded unit count and storage location to get started.</p>
           </section>
@@ -36,9 +59,18 @@
             <div class="section-heading"><div><p class="eyebrow">NEW RECORD</p><h2>Add inventory</h2></div></div>
             <form id="item-form" class="form-grid">
               <label class="field field-wide">Item name<input name="name" required maxlength="80" placeholder="Enter item name"></label>
-              <label class="field">Recorded units<input name="count" type="number" min="0" step="1" required placeholder="0"></label>
+              <label class="field">Units on hand<input name="count" type="number" min="0" step="1" required placeholder="0"></label>
               <label class="field">Stored at<input name="location" required maxlength="100" placeholder="Enter location"></label>
               <button class="button button-primary field-wide" type="submit">Add item</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="section-heading"><div><p class="eyebrow">RECEIVED STOCK</p><h2>Record items restocked</h2></div></div>
+            <p class="panel-copy">Add units back to an existing inventory item after receiving or restocking it.</p>
+            <form id="inventory-restock-form" class="form-grid">
+              <label class="field field-wide">Inventory item<select id="inventory-restock-item" name="itemId" required><option value="">Select an item</option></select></label>
+              <label class="field field-wide">Units restocked<input name="quantity" type="number" min="1" step="1" required placeholder="Enter quantity"></label>
+              <button class="button button-primary field-wide" type="submit">Add units to inventory</button>
             </form>
           </section>
         </div>
@@ -54,14 +86,14 @@
             </form>
           </section>
           <section class="panel">
-            <div class="section-heading"><div><p class="eyebrow">RECONCILIATION</p><h2>Needs an outcome</h2></div><span class="subtle-label">Choose one action</span></div>
+            <div class="section-heading"><div><p class="eyebrow">RECONCILIATION</p><h2>Pending restocks</h2></div><span class="subtle-label">Choose one outcome</span></div>
             <div id="task-list" class="task-list"></div>
-            <p id="empty-tasks" class="empty-state">No open restock tasks. A new task will appear here with the remaining-units calculation.</p>
+            <p id="empty-tasks" class="empty-state">No pending restocks. A new task will show its item, storage location, and units on hand.</p>
           </section>
           <section class="panel">
-            <div class="section-heading"><div><p class="eyebrow">RECENT ACTIVITY</p><h2>Activity history</h2></div></div>
+            <div class="section-heading"><div><p class="eyebrow">RECENT ACTIVITY</p><h2>Activity history</h2></div><span class="subtle-label">Newest first</span></div>
             <div id="history-list" class="history-list"></div>
-            <p id="empty-history" class="empty-state">Item additions and restock actions will appear here.</p>
+            <p id="empty-history" class="empty-state">Inventory additions, restock starts, and outcomes will appear here.</p>
           </section>
         </div>
       </section>
