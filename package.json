@@ -10,6 +10,8 @@
     "start": "node server.mjs",
     "demo:agent-context": "node scripts/demo-agent-context.mjs",
     "demo:agent-workflow": "node scripts/demo-agent-workflow.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "test:agent-api": "node scripts/check-agent-api.mjs",
+    "api:fixtures": "node scripts/check-agent-api.mjs --fixtures"
   }
 }

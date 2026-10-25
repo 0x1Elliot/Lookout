@@ -59,3 +59,15 @@ Node's built-in `.env` loader is used, so no environment package or API integrat
 ## Development Notes
 
 Testing my first README update commit.
+
+## Agent Operations dashboard and direct API checks
+
+The localhost home page now exposes all four deterministic Phase 6 stages, explicit synthetic count evidence, human approval/rejection, and a separate approved inventory action with audit details. Existing inventory and restock controls remain available.
+
+See [the browser and API walkthrough](docs/agent-operations.md) for exact curl requests, expected statuses, and prototype authorization/persistence limits.
+
+```sh
+npm run test:agent-api
+npm run test:agent-api -- --url http://127.0.0.1:4174
+npm run api:fixtures
+```

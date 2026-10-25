@@ -1,3 +1,4 @@
+import { mountAgentOperations } from './agent-operations.js';
 import {
   addInventoryItem,
   beginRestock,
@@ -124,10 +125,12 @@ function renderActivity() {
   }
 }
 
+let agentOperations;
 function render() {
   renderItems();
   renderTasks();
   renderActivity();
+  agentOperations?.refresh();
 }
 
 function finishTask(taskId, outcome) {
@@ -192,3 +195,22 @@ if (stateLoadError) {
   inventoryRestockForm.querySelectorAll('select, input, button').forEach((control) => { control.disabled = true; });
   showNotice('Saved inventory could not be read and was left unchanged. The editing controls are disabled to protect that data.', 'error');
 }
+
+agentOperations = mountAgentOperations({
+  getInventory: () => state,
+  updateInventory(next) {
+    // Persist first: storage failure must not silently claim success.
+    saveInventoryState(localStorage, next);
+    state = next;
+    render();
+  },
+  addSample() {
+    const stateBeforeSample = new Set(state.inventoryItems.map(item => item.id));
+    const next = addInventoryItem(state, { name: 'Synthetic demo notebooks', count: 8, location: 'Demo back room' });
+    saveInventoryState(localStorage, next);
+    state = next;
+    render();
+    return next.inventoryItems.find(item => !stateBeforeSample.has(item.id));
+  },
+  disabled: Boolean(stateLoadError),
+});

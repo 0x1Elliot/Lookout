@@ -5,6 +5,7 @@ import { getPublicAsset } from './public-assets.js';
 test('serves only the intended browser assets', () => {
   assert.equal(getPublicAsset('/'), 'index.html');
   assert.equal(getPublicAsset('/app.js'), 'app.js');
+  assert.equal(getPublicAsset('/agent-operations.js'), 'agent-operations.js');
   assert.equal(getPublicAsset('/inventory.js'), 'inventory.js');
   assert.equal(getPublicAsset('/inventory-storage.js'), 'inventory-storage.js');
   assert.equal(getPublicAsset('/styles.css'), 'styles.css');

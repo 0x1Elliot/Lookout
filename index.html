@@ -25,6 +25,29 @@
 
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 
+      <section class="panel agent-panel" aria-labelledby="agent-title">
+        <p class="eyebrow">DETERMINISTIC LOCAL PROTOTYPE</p><h2 id="agent-title">Agent Operations</h2>
+        <p>Synthetic test events only. Four application stages; no live sensors or LLM calls. Your approval can update this browser’s inventory.</p>
+        <div class="agent-stages" id="agent-stages" aria-label="Workflow stages"></div>
+        <form id="agent-event-form" class="form-grid">
+          <label class="field">Inventory item<select id="agent-item" required></select></label>
+          <label class="field">Synthetic observed count<input id="agent-count" type="number" min="0" step="1" required value="5"></label>
+          <button class="button button-primary" id="agent-trigger">Run synthetic test event</button>
+          <button class="button button-secondary" type="button" id="agent-sample">Add sample item (8 units)</button>
+        </form>
+        <div id="agent-status" role="status" aria-live="polite">Choose an item or add a sample to begin.</div>
+        <div id="agent-evidence"></div>
+        <form id="agent-review-form" class="form-grid" hidden>
+          <label class="field">Reviewer name<input id="agent-reviewer" required maxlength="100" placeholder="Your name"></label>
+          <label class="field">Reason<input id="agent-reason" required maxlength="200" placeholder="Why approve or reject this test count?"></label>
+          <button class="button button-primary" name="outcome" value="approve">Approve count</button>
+          <button class="button button-secondary" name="outcome" value="reject">Reject count</button>
+        </form>
+        <button id="agent-apply" class="button button-primary" type="button" hidden>Apply approved count to inventory</button>
+        <details><summary>Workflow and audit details</summary><pre id="agent-audit">No event yet.</pre></details>
+        <p class="muted">Workflow records live in server memory and reset on restart. Inventory is saved in this browser. Reloading starts a new dashboard session. Reviewer names are self-reported, not authenticated.</p>
+      </section>
+
       <section class="content-grid">
         <div class="column">
           <section class="panel">
