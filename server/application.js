@@ -14,9 +14,17 @@ export async function createApplication(env, assets = (_req,res) => res.writeHea
     throw new Error('Inventory and identity connections require separate logins.');
   }
   const pool = createPool(security.databaseUrl), identityPool = createPool(identity.databaseUrl);
-  const close = async () => { await Promise.all([pool.end(), identityPool.end()]); };
+  let closing;
+  const close = () => closing ??= Promise.all([pool.end(), identityPool.end()]);
   try {
     await verifyRuntime(pool); await verifyIdentity(identityPool);
-    return { handler: createSecureHandler(new PostgresStore(pool), assets, new AccountAuth(identityPool, accounts)), close };
+    const handler = createSecureHandler(new PostgresStore(pool), assets, new AccountAuth(identityPool, accounts));
+    return { handler: (req, res) => {
+      if (closing) {
+        res.writeHead(503, {'Content-Type':'application/json','Cache-Control':'no-store'});
+        return res.end(JSON.stringify({error:'Database unavailable.'}));
+      }
+      return handler(req, res);
+    }, close };
   } catch (error) { await close(); throw error; }
 }

@@ -19,6 +19,9 @@ export class PostgresStore {
   constructor(pool) { this.pool = pool; }
   async transaction(hash, operation) {
     const client = await this.pool.connect();
+    let connectionError;
+    const disconnected = error => { connectionError = error; };
+    client.on('error', disconnected);
     try {
       await client.query('BEGIN');
       // The same unguessable session digest selects identity AND the RLS context.
@@ -27,10 +30,18 @@ export class PostgresStore {
       const { rows: [identity] } = await client.query('SELECT * FROM lookout.session_principal($1)', [hash]);
       if (!identity) throw fail(401, 'Sign in required.');
       const result = await operation(client, identity);
+      if (connectionError) throw connectionError;
       await client.query('COMMIT');
       return result;
-    } catch (error) { await client.query('ROLLBACK'); throw error; }
-    finally { client.release(); }
+    } catch (error) {
+      // Preserve the original failure even when a disconnected socket cannot
+      // acknowledge ROLLBACK. PostgreSQL aborts its uncommitted transaction.
+      try { await client.query('ROLLBACK'); } catch (rollbackError) { connectionError ??= rollbackError; }
+      throw error;
+    } finally {
+      client.release(connectionError);
+      client.removeListener('error', disconnected);
+    }
   }
   async state(client, tenant) {
     // One lock serializes inventory + four-stage transitions within a tenant.

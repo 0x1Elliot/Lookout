@@ -51,9 +51,10 @@ export function createSecureHandler(store, assets, auth) {
       if (!['/api/inventory', '/api/agent/workflow'].includes(path)) throw fail(404, 'API route not found.');
       return send(200, await store.execute(hash, path === '/api/inventory' ? 'inventory' : 'workflow', input));
     } catch (error) {
-      const status = error.statusCode ?? (error.code === '23505' ? 409 : error.code === '23503' || error.code === '23514' ? 400
+      const connectionFailure = /^(?:Connection terminated|timeout exceeded when trying to connect|Cannot use a pool after calling end)/.test(error.message);
+      const status = error.statusCode ?? (connectionFailure ? 503 : error.code === '23505' ? 409 : error.code === '23503' || error.code === '23514' ? 400
         : error.code ? 503 : /changed since|already|no reviewable/.test(error.message) ? 409 : /unapproved|cannot change inventory/.test(error.message) ? 403 : 400);
-      const message = error.code ? (status === 503 ? 'Database unavailable.' : 'Record conflict or invalid reference.') : error.message;
+      const message = error.code || connectionFailure ? (status === 503 ? 'Database unavailable.' : 'Record conflict or invalid reference.') : error.message;
       send(status, { error: message });
     }
   };

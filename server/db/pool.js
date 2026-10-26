@@ -9,8 +9,30 @@ export function createPool(connectionString) {
     && (url.hostname.endsWith('.pooler.supabase.com') || url.hostname.endsWith('.supabase.co'))) {
     url.searchParams.set('sslrootcert', fileURLToPath(new URL('../../certs/supabase-root-ca.crt', import.meta.url)));
   }
-  return new pg.Pool({ connectionString: url.toString(), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000,
+  const pool = new pg.Pool({ connectionString: url.toString(), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000,
     statement_timeout: 10000, application_name: 'lookout' });
+  // pg already discards a failed idle client. Observe the event without logging
+  // its error/client object (which can contain credentials), or retrying writes.
+  pool.on('error', () => console.warn('PostgreSQL idle connection lost; no operation was automatically retried.'));
+  const connections = new Set();
+  pool.on('connect', client => {
+    // Checked-out clients can fail between queries, when pg has no query/idle
+    // error listener installed. Subsequent queries still reject normally.
+    client.on('error', () => {});
+    let closed;
+    const disconnected = new Promise(resolve => { closed = resolve; });
+    connections.add(disconnected);
+    client.once('end', () => { connections.delete(disconnected); closed(); });
+  });
+  const end = pool.end.bind(pool);
+  let closing;
+  // pg's end promise can resolve before removed clients finish disconnecting.
+  // Also wait for those sockets, including clients discarded after SQL errors.
+  pool.end = () => closing ??= (async () => {
+    await end();
+    await Promise.all([...connections]);
+  })();
+  return pool;
 }
 export async function verifyRuntime(pool) {
   const { rows: [role] } = await pool.query(`SELECT r.rolsuper, r.rolbypassrls, r.rolcreaterole, r.rolcreatedb, r.rolreplication,
