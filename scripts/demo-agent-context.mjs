@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { addInventoryItem, beginRestock, createEmptyInventoryState } from '../inventory.js';
-import { createLookoutHandler } from '../server.mjs';
+import { createDemoHandler } from '../server.mjs';
 
 let inventory = addInventoryItem(createEmptyInventoryState(), {
   name: 'Blue notebooks', count: 8, location: 'Back room A',
@@ -20,4 +20,4 @@ const response = {
   },
 };
 
-await createLookoutHandler()(request, response);
+await createDemoHandler()(request, response);

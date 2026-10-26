@@ -1,4 +1,4 @@
-export function mountAgentOperations({ getInventory, updateInventory, addSample, disabled = false }) {
+export function mountAgentOperations({ getInventory, updateInventory, addSample, postWorkflow, loadWorkflow, canReview = true, canAct = true, canCreate = true, disabled = false }) {
   const $ = id => document.getElementById(id);
   let record, event, actionResult, actionSnapshot, applied = false, busy = false;
   const stages = ['Detection', 'Reconciliation', 'Review Coordination', 'Inventory Action'];
@@ -15,11 +15,13 @@ export function mountAgentOperations({ getInventory, updateInventory, addSample,
       const title = document.createElement('strong'); title.textContent = `${i + 1}. ${name}`;
       const status = document.createElement('p'); status.textContent = progress[i]; card.append(title, status); return card;
     }));
-    $('agent-review-form').hidden = !record?.reviewRequired || Boolean(record?.review);
-    $('agent-apply').hidden = record?.status !== 'approved' || applied;
+    $('agent-review-form').hidden = !canReview || !record?.reviewRequired || Boolean(record?.review);
+    $('agent-apply').hidden = !canAct || record?.status !== 'approved' || applied;
     document.querySelectorAll('.agent-panel button, .agent-panel input, .agent-panel select').forEach(control => control.disabled = busy || disabled);
+    for (const id of ['agent-item', 'agent-count', 'agent-trigger', 'agent-sample']) $(id).disabled = busy || disabled || !canCreate;
   }
   async function post(input) {
+    if (postWorkflow) return postWorkflow(input);
     const response = await fetch('/api/agent/workflow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error ?? `Request failed (${response.status})`);
@@ -28,14 +30,14 @@ export function mountAgentOperations({ getInventory, updateInventory, addSample,
   async function run(operation) {
     if (busy || disabled) return;
     busy = true; refresh();
-    try { await operation(); } catch (error) { $('agent-status').textContent = `${error.message} Start a new test event if inventory changed or the server restarted.`; }
+    try { await operation(); } catch (error) { $('agent-status').textContent = `${error.message} ${postWorkflow ? 'Load saved cases and refresh inventory before continuing.' : 'Start a new test event if inventory changed or the server restarted.'}`; }
     finally { busy = false; refresh(); }
   }
   function details(result) {
     $('agent-audit').textContent = JSON.stringify({ event, caseRecord: record, action: result?.action, activity: result?.inventory?.activity[0] }, null, 2);
   }
   $('agent-sample').addEventListener('click', () => run(async () => {
-    const item = addSample(); refresh(); $('agent-item').value = item.id;
+    const item = await addSample(); refresh(); $('agent-item').value = item.id;
     $('agent-count').value = '5'; $('agent-status').textContent = 'Sample added: recorded 8 units. Run the synthetic count of 5.';
   }));
   $('agent-event-form').addEventListener('submit', e => {
@@ -73,5 +75,29 @@ export function mountAgentOperations({ getInventory, updateInventory, addSample,
     updateInventory(actionResult.inventory); applied = true; record = actionResult.workflow.cases.find(c => c.caseId === record.caseId);
     details(actionResult); $('agent-status').textContent = 'Completed. Inventory and Activity history now show the approved count and audit entry.';
   }));
+  if (loadWorkflow) {
+    const queue = document.createElement('div');
+    const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Load saved cases and refresh inventory';
+    const label = document.createElement('label'); label.textContent = 'Saved case';
+    const select = document.createElement('select'); label.append(select);
+    let saved;
+    reload.addEventListener('click', () => run(async () => {
+      saved = await loadWorkflow();
+      select.replaceChildren(new Option('Select a saved case', ''));
+      for (const candidate of saved.cases) select.add(new Option(`${candidate.caseId} · ${candidate.status}`, candidate.caseId));
+      $('agent-status').textContent = 'Server inventory and saved cases loaded. Select a case to continue.';
+    }));
+    select.addEventListener('change', () => {
+      record = saved?.cases.find(candidate => candidate.caseId === select.value);
+      event = saved?.events.find(candidate => candidate.eventId === record?.eventId);
+      actionResult = undefined; actionSnapshot = undefined; applied = record?.status === 'completed';
+      $('agent-evidence').replaceChildren();
+      if (record) for (const fact of [...record.observedFacts, ...record.inferences]) {
+        const p = document.createElement('p'); p.textContent = fact.statement; $('agent-evidence').append(p);
+      }
+      details(); refresh();
+    });
+    queue.append(reload, label); document.querySelector('.agent-panel').append(queue);
+  }
   refresh(); return { refresh };
 }

@@ -5,3 +5,7 @@ node_modules/
 .DS_Store
 coverage/
 work/api-fixtures/
+work/
+
+public/
+.vercel/

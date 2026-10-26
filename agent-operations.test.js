@@ -13,7 +13,7 @@ class Node {
   add(child) { this.children.push(child); }
 }
 async function setup(t) {
-  const ids = ['agent-item','agent-count','agent-stages','agent-review-form','agent-apply','agent-sample','agent-status','agent-event-form','agent-evidence','agent-audit','agent-reviewer','agent-reason'];
+  const ids = ['agent-trigger','agent-item','agent-count','agent-stages','agent-review-form','agent-apply','agent-sample','agent-status','agent-event-form','agent-evidence','agent-audit','agent-reviewer','agent-reason'];
   const nodes = Object.fromEntries(ids.map(id => [id, new Node()]));
   const controls = ids.filter(id => !['agent-stages','agent-status','agent-evidence','agent-audit','agent-review-form','agent-event-form'].includes(id)).map(id => nodes[id]);
   const send = inProcessTransport();

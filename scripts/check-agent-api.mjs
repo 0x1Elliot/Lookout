@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createLookoutHandler } from '../server.mjs';
+import { createDemoHandler } from '../server.mjs';
 import { addInventoryItem, createEmptyInventoryState, restockInventoryItem } from '../inventory.js';
 
 export function apiFixtures() {
@@ -31,7 +31,7 @@ export function apiFixtures() {
     'reject': { stage: 'review', caseId, decision: { ...decision, outcome: 'reject' } },
   };
 }
-export function inProcessTransport(handler = createLookoutHandler()) {
+export function inProcessTransport(handler = createDemoHandler()) {
   return async (input, { raw, method = 'POST', contentType = 'application/json' } = {}) => {
     const request = Readable.from([raw ?? JSON.stringify(input)]);
     Object.assign(request, { method, url: '/api/agent/workflow', headers: contentType ? { 'content-type': contentType } : {} });

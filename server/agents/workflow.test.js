@@ -8,7 +8,7 @@ import {
   restockInventoryItem,
 } from '../../inventory.js';
 import { createAgentInventoryContext } from '../agent-context.js';
-import { createLookoutHandler } from '../../server.mjs';
+import { createDemoHandler } from '../../server.mjs';
 import { createAgentWorkflowService } from './workflow.js';
 
 let id = 0;
@@ -225,7 +225,7 @@ function requestHandler(handler, stage, payload, path = '/api/agent/workflow', m
 }
 
 test('workflow API connects all four responsibilities without a listening port and context reads see the result', async () => {
-  const handler = createLookoutHandler();
+  const handler = createDemoHandler();
   const initial = inventory();
   const intake = await requestHandler(handler, 'intake', { stage: 'intake', event: event() });
   assert.equal(intake.statusCode, 200);
@@ -255,7 +255,7 @@ test('workflow API connects all four responsibilities without a listening port a
 });
 
 test('workflow API rejects action attempts without an approved server-side case', async () => {
-  const handler = createLookoutHandler();
+  const handler = createDemoHandler();
   const result = await requestHandler(handler, 'action', {
     stage: 'action', caseId: 'case:forged', request: { actionRequestId: 'forged-action' }, inventory: inventory(),
   });
