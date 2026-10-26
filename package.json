@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.21.0"
+    "node": "24.x"
   },
   "scripts": {
     "start": "node server.mjs",
@@ -20,7 +20,11 @@
     "check:supabase": "node scripts/check-supabase.mjs",
     "test:supabase": "node scripts/check-supabase-integration.mjs",
     "test:accounts": "node scripts/check-accounts.mjs",
-    "test:legacy-curl": "node scripts/check-legacy-curl.mjs"
+    "test:legacy-curl": "node scripts/check-legacy-curl.mjs",
+    "build": "node scripts/build.mjs",
+    "test:tenant-boundary": "node scripts/check-tenant-boundary.mjs",
+    "test:deployment": "node scripts/check-deployment.mjs",
+    "test:migration-upgrade": "node scripts/check-migration-upgrade.mjs"
   },
   "dependencies": {
     "pg": "8.23.1"
