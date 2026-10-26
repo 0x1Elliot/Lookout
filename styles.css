@@ -10,3 +10,8 @@
 #agent-audit { white-space:pre-wrap; overflow-wrap:anywhere; max-height:360px; overflow:auto; font-size:12px; }
 [hidden] { display:none !important; }
 @media(max-width:720px) { .agent-stages { grid-template-columns:1fr 1fr; } }
+
+.auth-shell { max-width: 480px; margin: 4rem auto; }
+.auth-shell h1 { font-size: 2rem; }
+.auth-shell > button { margin-top: 1rem; }
+[hidden] { display: none !important; }

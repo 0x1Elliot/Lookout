@@ -1,3 +1,4 @@
+import { connectBackend } from './secure-client.js';
 import { mountAgentOperations } from './agent-operations.js';
 import {
   addInventoryItem,
@@ -7,8 +8,9 @@ import {
   restockInventoryItem,
 } from './inventory.js';
 import { loadInventoryState, saveInventoryState } from './inventory-storage.js';
+const backend = await connectBackend();
 let stateLoadError;
-let state = loadState();
+let state = backend ? backend.initial.inventory : loadState();
 const itemForm = document.querySelector('#item-form');
 const restockForm = document.querySelector('#restock-form');
 const inventoryRestockForm = document.querySelector('#inventory-restock-form');
@@ -28,6 +30,7 @@ function loadState() {
 }
 
 function saveState() {
+  if (backend) return;
   saveInventoryState(localStorage, state);
 }
 
@@ -131,11 +134,12 @@ function render() {
   renderTasks();
   renderActivity();
   agentOperations?.refresh();
+  if (backend?.initial.identity.role === 'reviewer') document.querySelectorAll('#item-form input, #item-form button, #inventory-restock-form select, #inventory-restock-form input, #inventory-restock-form button, #restock-form select, #restock-form input, #restock-form button, .task-actions button').forEach(control => { control.disabled = true; });
 }
 
-function finishTask(taskId, outcome) {
+async function finishTask(taskId, outcome) {
   try {
-    state = reconcileTask(state, taskId, outcome);
+    state = backend ? (await backend.mutate('finish', { taskId, outcome })).inventory : reconcileTask(state, taskId, outcome);
     saveState();
     render();
     showNotice(outcome === 'returned' ? 'Returned to inventory. The units are available again.' : 'Shelf restock recorded. Inventory remains reduced.');
@@ -144,11 +148,12 @@ function finishTask(taskId, outcome) {
   }
 }
 
-itemForm.addEventListener('submit', (event) => {
+itemForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   try {
     const form = new FormData(itemForm);
-    state = addInventoryItem(state, { name: form.get('name'), count: form.get('count'), location: form.get('location') });
+    const item = { name: form.get('name'), count: form.get('count'), location: form.get('location') };
+    state = backend ? (await backend.mutate('add', { item })).inventory : addInventoryItem(state, item);
     saveState();
     itemForm.reset();
     render();
@@ -158,11 +163,11 @@ itemForm.addEventListener('submit', (event) => {
   }
 });
 
-inventoryRestockForm.addEventListener('submit', (event) => {
+inventoryRestockForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   try {
     const form = new FormData(inventoryRestockForm);
-    state = restockInventoryItem(state, form.get('itemId'), form.get('quantity'));
+    state = backend ? (await backend.mutate('receive', { itemId: form.get('itemId'), quantity: form.get('quantity') })).inventory : restockInventoryItem(state, form.get('itemId'), form.get('quantity'));
     saveState();
     const entry = state.activity[0];
     inventoryRestockForm.reset();
@@ -173,11 +178,11 @@ inventoryRestockForm.addEventListener('submit', (event) => {
   }
 });
 
-restockForm.addEventListener('submit', (event) => {
+restockForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   try {
     const form = new FormData(restockForm);
-    state = beginRestock(state, form.get('itemId'), form.get('quantity'));
+    state = backend ? (await backend.mutate('begin', { itemId: form.get('itemId'), quantity: form.get('quantity') })).inventory : beginRestock(state, form.get('itemId'), form.get('quantity'));
     const task = state.restockTasks[0];
     saveState();
     restockForm.reset();
@@ -198,16 +203,24 @@ if (stateLoadError) {
 
 agentOperations = mountAgentOperations({
   getInventory: () => state,
+  canReview: !backend || ['reviewer', 'admin'].includes(backend.initial.identity.role),
+  canAct: !backend || ['worker', 'admin'].includes(backend.initial.identity.role),
+  canCreate: !backend || ['worker', 'admin'].includes(backend.initial.identity.role),
+  postWorkflow: backend?.workflow,
+  loadWorkflow: backend ? async () => {
+    const result = await backend.read(); state = result.inventory; render(); return result.workflow;
+  } : undefined,
   updateInventory(next) {
     // Persist first: storage failure must not silently claim success.
-    saveInventoryState(localStorage, next);
+    if (!backend) saveInventoryState(localStorage, next);
     state = next;
     render();
   },
-  addSample() {
+  async addSample() {
     const stateBeforeSample = new Set(state.inventoryItems.map(item => item.id));
-    const next = addInventoryItem(state, { name: 'Synthetic demo notebooks', count: 8, location: 'Demo back room' });
-    saveInventoryState(localStorage, next);
+    const item = { name: 'Synthetic demo notebooks', count: 8, location: 'Demo back room' };
+    const next = backend ? (await backend.mutate('add', { item })).inventory : addInventoryItem(state, item);
+    if (!backend) saveInventoryState(localStorage, next);
     state = next;
     render();
     return next.inventoryItems.find(item => !stateBeforeSample.has(item.id));

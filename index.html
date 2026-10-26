@@ -26,8 +26,8 @@
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 
       <section class="panel agent-panel" aria-labelledby="agent-title">
-        <p class="eyebrow">DETERMINISTIC LOCAL PROTOTYPE</p><h2 id="agent-title">Agent Operations</h2>
-        <p>Synthetic test events only. Four application stages; no live sensors or LLM calls. Your approval can update this browser’s inventory.</p>
+        <p id="agent-mode" class="eyebrow">DETERMINISTIC LOCAL PROTOTYPE</p><h2 id="agent-title">Agent Operations</h2>
+        <p id="agent-description">Synthetic test events only. Four application stages; no live sensors or LLM calls. Your approval can update this browser’s inventory.</p>
         <div class="agent-stages" id="agent-stages" aria-label="Workflow stages"></div>
         <form id="agent-event-form" class="form-grid">
           <label class="field">Inventory item<select id="agent-item" required></select></label>
@@ -45,7 +45,7 @@
         </form>
         <button id="agent-apply" class="button button-primary" type="button" hidden>Apply approved count to inventory</button>
         <details><summary>Workflow and audit details</summary><pre id="agent-audit">No event yet.</pre></details>
-        <p class="muted">Workflow records live in server memory and reset on restart. Inventory is saved in this browser. Reloading starts a new dashboard session. Reviewer names are self-reported, not authenticated.</p>
+        <p id="agent-persistence" class="muted">Workflow records live in server memory and reset on restart. Inventory is saved in this browser. Reloading starts a new dashboard session. Reviewer names are self-reported, not authenticated.</p>
       </section>
 
       <section class="content-grid">
