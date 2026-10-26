@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { addInventoryItem, beginRestock, createEmptyInventoryState, reconcileTask } from '../inventory.js';
 import { createAgentInventoryContext } from './agent-context.js';
-import { createLookoutHandler } from '../server.mjs';
+import { createDemoHandler } from '../server.mjs';
 
 function sampleState() {
   let state = addInventoryItem(createEmptyInventoryState(), { name: 'Blue notebooks', count: 8, location: 'Back room A' });
@@ -57,7 +57,7 @@ function invokeContextRoute({ method = 'POST', body = '', contentType = 'applica
     writeHead(statusCode, headers = {}) { result.statusCode = statusCode; result.headers = headers; return this; },
     end(chunk = '') { result.chunks.push(String(chunk)); },
   };
-  return createLookoutHandler()(request, response).then(() => ({
+  return createDemoHandler()(request, response).then(() => ({
     ...result,
     body: result.chunks.join(''),
   }));

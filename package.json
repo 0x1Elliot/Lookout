@@ -12,6 +12,18 @@
     "demo:agent-workflow": "node scripts/demo-agent-workflow.mjs",
     "test": "node --test",
     "test:agent-api": "node scripts/check-agent-api.mjs",
-    "api:fixtures": "node scripts/check-agent-api.mjs --fixtures"
+    "api:fixtures": "node scripts/check-agent-api.mjs --fixtures",
+    "start:demo": "LOOKOUT_MODE=demo node server.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:database": "node scripts/check-database.mjs",
+    "demo:secure": "node scripts/local-database.mjs",
+    "test:accounts": "node scripts/check-accounts.mjs",
+    "test:legacy-curl": "node scripts/check-legacy-curl.mjs"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17"
   }
 }

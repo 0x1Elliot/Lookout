@@ -1,4 +1,9 @@
 import { createServer } from 'node:http';
+import { AccountAuth, authConfig } from './server/auth.js';
+import { secureConfig } from './server/security.js';
+import { createPool, verifyRuntime } from './server/db/pool.js';
+import { PostgresStore } from './server/db/store.js';
+import { createSecureHandler } from './server/secure-handler.js';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,10 +22,14 @@ const contentTypes = {
   '.json': 'application/json; charset=utf-8',
 };
 
-export function createLookoutHandler() {
+export function createDemoHandler() {
   const workflow = createAgentWorkflowService();
   return async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
+
+  if (pathname === '/api/config' && request.method === 'GET') {
+    response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ mode: 'demo' })); return;
+  }
 
   if (pathname === '/api/agent/workflow') {
     if (request.method === 'GET') {
@@ -138,12 +147,32 @@ export function createLookoutHandler() {
   };
 }
 
-export function createLookoutServer() {
-  return createServer(createLookoutHandler());
+export function createDemoServer() {
+  return createServer(createDemoHandler());
+}
+
+// The application factory always validates its deployment mode before exposing routes.
+export async function createLookoutServer(env = process.env) {
+  const security = secureConfig(env);
+  if (security.mode === 'demo') return createDemoServer();
+  const accounts = authConfig(env);
+  const pool = createPool(security.databaseUrl);
+  try {
+    await verifyRuntime(pool);
+    const server = createServer(createSecureHandler(new PostgresStore(pool), createDemoHandler(), new AccountAuth(pool, accounts)));
+    server.once('close', () => { void pool.end(); });
+    return server;
+  } catch (error) { await pool.end(); throw error; }
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
-  const server = createLookoutServer();
+  const server = await createLookoutServer();
+  if (process.env.LOOKOUT_MODE === 'demo') console.warn('LOCAL DEMO: no authentication or durable backend. Synthetic data only.');
+  server.requestTimeout = 15000;
+  server.headersTimeout = 10000;
+  const shutdown = () => server.close();
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
   server.listen(config.port, '127.0.0.1', () => {
     console.log(`Lookout is running at http://127.0.0.1:${config.port}`);
   });
