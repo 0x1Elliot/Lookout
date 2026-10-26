@@ -21,13 +21,11 @@ export class PostgresStore {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      // Authorization is evaluated afresh on each transaction.
-      const { rows: [principal] } = await client.query(`SELECT tenant_id, id, name, role FROM lookout.principals
-        WHERE token_hash=$1 AND NOT disabled AND expires_at > now()`, [hash]);
-      const session = principal ? undefined : (await client.query('SELECT * FROM lookout.session_principal($1)', [hash])).rows[0];
-      const identity = principal ?? session;
+      // The same unguessable session digest selects identity AND the RLS context.
+      // Caller-supplied tenant IDs and the old tenant setting cannot establish authority.
+      await client.query("SELECT set_config('lookout.session_hash',$1,true)", [hash]);
+      const { rows: [identity] } = await client.query('SELECT * FROM lookout.session_principal($1)', [hash]);
       if (!identity) throw fail(401, 'Sign in required.');
-      await client.query("SELECT set_config('lookout.tenant_id',$1,true)", [identity.tenant_id]);
       const result = await operation(client, identity);
       await client.query('COMMIT');
       return result;

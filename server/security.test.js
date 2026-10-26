@@ -15,3 +15,8 @@ test('bearer syntax and RBAC deny absent identity, unknown roles and worker revi
   assert.throws(() => authorize({ role: 'reviewer' }, 'action'), /forbidden/);
   assert.throws(() => authorize({ role: 'owner' }, 'read'), /forbidden/);
 });
+test('remote database TLS configuration rejects ambiguous modes and bypass parameters',()=>{
+ for(const suffix of ['sslmode=verify-full&sslmode=disable','sslmode=verify-full&ssl=false','sslmode=verify-full&uselibpqcompat=true','sslmode=verify-full&sslnegotiation=direct']) {
+  assert.throws(()=>secureConfig({DATABASE_URL:'postgresql://runtime@remote.example/db?'+suffix}));
+ }
+});

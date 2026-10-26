@@ -11,7 +11,7 @@ import { createSecureHandler } from '../server/secure-handler.js';
 // Real HTTP + real PostgreSQL, simulated Supabase only. Never contacts hosted Auth.
 await mkdir('work', {recursive:true});
 const directory = await mkdtemp(resolve('work/supabase-test-'));
-let local, pool, server, checks = 0;
+let local, pool, identityPool, server, checks = 0;
 const passed = message => { checks++; console.log('PASS '+message); };
 const origin = 'https://lookout.example';
 const input = {email:'owner@example.test',password:'Synthetic-password-123',name:'Owner'};
@@ -35,7 +35,8 @@ try {
   local = await localPostgres(directory,Number(process.env.TEST_SUPABASE_DB_PORT??55441));
   pool = createPool(local.runtimeUrl);
   await verifyRuntime(pool);
-  const auth = new AccountAuth(pool,{provider:'supabase',secure:true,origin,url:'https://project.supabase.co',key:'sb_publishable_fixture'},fetcher);
+  identityPool=createPool(local.identityUrl);
+  const auth = new AccountAuth(identityPool,{provider:'supabase',secure:true,origin,url:'https://project.supabase.co',key:'sb_publishable_fixture'},fetcher);
   server = createServer(createSecureHandler(new PostgresStore(pool),(_req,res)=>res.writeHead(404).end(),auth));
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   let base = `http://127.0.0.1:${server.address().port}`;
@@ -77,8 +78,8 @@ try {
   await call('/api/auth/login',input);
   assert.equal((await local.owner.query('SELECT count(*)::int AS n FROM lookout.auth_accounts')).rows[0].n,1);
   passed('provider outage denies new login; existing bounded session works; repeated login retains one account');
-  await pool.end(); pool=undefined; await local.owner.end(); await local.db.stop(); await local.db.start();
-  pool=createPool(local.runtimeUrl); auth.pool=pool;
+  await pool.end(); pool=undefined; await identityPool.end(); identityPool=undefined; await local.owner.end(); await local.db.stop(); await local.db.start();
+  pool=createPool(local.runtimeUrl); identityPool=createPool(local.identityUrl); auth.pool=identityPool;
   // Handler store must use the new pool after a real database restart.
   await new Promise(resolve=>server.close(resolve)); server=undefined;
   server=createServer(createSecureHandler(new PostgresStore(pool),(_req,res)=>res.writeHead(404).end(),auth));
@@ -106,5 +107,5 @@ try {
   console.log(`${checks} simulated-Supabase / real-PostgreSQL integration checks passed. Hosted Supabase and email delivery NOT tested.`);
 } finally {
   if(server) await new Promise(resolve=>server.close(resolve));
-  await pool?.end(); await local?.owner.end(); await local?.db.stop(); await rm(directory,{recursive:true,force:true});
+  await pool?.end(); await identityPool?.end(); await local?.owner.end(); await local?.db.stop(); await rm(directory,{recursive:true,force:true});
 }

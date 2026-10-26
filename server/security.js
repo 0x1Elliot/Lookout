@@ -25,7 +25,7 @@ export function secureConfig(env = process.env) {
   try { url = new URL(env.DATABASE_URL); } catch { throw new Error('DATABASE_URL is required in secure mode.'); }
   if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Error('DATABASE_URL must use PostgreSQL.');
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if (!local && url.searchParams.get('sslmode') !== 'verify-full') throw new Error('Remote PostgreSQL requires sslmode=verify-full.');
-  if (url.searchParams.has('ssl') || url.searchParams.has('uselibpqcompat')) throw new Error('Unsupported database TLS override.');
+  if (!local && (url.searchParams.getAll('sslmode').length !== 1 || url.searchParams.get('sslmode') !== 'verify-full')) throw new Error('Remote PostgreSQL requires sslmode=verify-full.');
+  if (['ssl','uselibpqcompat','sslnegotiation','sslcert','sslkey'].some(key => url.searchParams.has(key))) throw new Error('Unsupported database TLS override.');
   return { mode, databaseUrl: env.DATABASE_URL };
 }

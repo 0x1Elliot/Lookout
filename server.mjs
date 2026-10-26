@@ -1,9 +1,6 @@
 import { createServer } from 'node:http';
-import { AccountAuth, authConfig } from './server/auth.js';
+import { createApplication } from './server/application.js';
 import { secureConfig } from './server/security.js';
-import { createPool, verifyRuntime } from './server/db/pool.js';
-import { PostgresStore } from './server/db/store.js';
-import { createSecureHandler } from './server/secure-handler.js';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -155,14 +152,10 @@ export function createDemoServer() {
 export async function createLookoutServer(env = process.env) {
   const security = secureConfig(env);
   if (security.mode === 'demo') return createDemoServer();
-  const accounts = authConfig(env);
-  const pool = createPool(security.databaseUrl);
-  try {
-    await verifyRuntime(pool);
-    const server = createServer(createSecureHandler(new PostgresStore(pool), createDemoHandler(), new AccountAuth(pool, accounts)));
-    server.once('close', () => { void pool.end(); });
-    return server;
-  } catch (error) { await pool.end(); throw error; }
+  const app = await createApplication(env, createDemoHandler());
+  const server = createServer(app.handler);
+  server.once('close', () => { void app.close(); });
+  return server;
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

@@ -9,11 +9,12 @@ import { AccountAuth } from '../server/auth.js';
 import { createSecureHandler } from '../server/secure-handler.js';
 await mkdir('work',{recursive:true});
 const dir=await mkdtemp(resolve('work/accounts-'));
-let local,pool,server; let checks=0;
+let local,pool,identityPool,server; let checks=0;
 const passed=message=>{checks++;console.log('PASS '+message);};
 try {
   local=await localPostgres(dir,Number(process.env.TEST_AUTH_DB_PORT??55440)); pool=createPool(local.runtimeUrl);
-  const auth=new AccountAuth(pool,{provider:'local-dev',origin:'http://127.0.0.1:4173',secure:false});
+  identityPool=createPool(local.identityUrl);
+  const auth=new AccountAuth(identityPool,{provider:'local-dev',origin:'http://127.0.0.1:4173',secure:false});
   server=createServer(createSecureHandler(new PostgresStore(pool),(_req,res)=>res.writeHead(404).end(),auth));
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -64,5 +65,5 @@ try {
   await assert.rejects(pool.query('SELECT * FROM lookout.sessions'),e=>e.code==='42501');passed('runtime cannot read password hashes or raw session records directly');
   console.log(`${checks} real PostgreSQL account/session checks passed.`);
 } finally {
-  if(server)await new Promise(resolve=>server.close(resolve));await pool?.end();await local?.owner.end();await local?.db.stop();await rm(dir,{recursive:true,force:true});
+  if(server)await new Promise(resolve=>server.close(resolve));await pool?.end(); await identityPool?.end();await local?.owner.end();await local?.db.stop();await rm(dir,{recursive:true,force:true});
 }
