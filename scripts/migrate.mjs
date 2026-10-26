@@ -11,7 +11,7 @@ try {
   await client.query("SELECT pg_advisory_xact_lock(7001007)");
   await client.query('CREATE TABLE IF NOT EXISTS public.lookout_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())');
   await client.query('REVOKE ALL ON public.lookout_migrations FROM PUBLIC');
-  for (const name of ['001_foundation.sql', '002_runtime.sql', '003_accounts.sql']) {
+  for (const name of ['001_foundation.sql', '002_runtime.sql', '003_accounts.sql', '004_supabase_session_lifetime.sql']) {
     const sql = await readFile(new URL(`../server/db/migrations/${name}`, import.meta.url), 'utf8');
     const hash = createHash('sha256').update(sql).digest('hex');
     const { rows: [prior] } = await client.query('SELECT checksum FROM public.lookout_migrations WHERE name=$1', [name]);

@@ -38,12 +38,13 @@ Secure mode ignores caller-supplied inventory snapshots and never imports or del
 npm test
 npm run test:database
 npm run test:accounts
+npm run test:supabase
 npm run demo:agent-context
 npm run demo:agent-workflow
 npm run test:agent-api
 ```
 
-`npm test` runs the original 41 tests plus six security/authentication tests (47 total). `test:database` creates a disposable real PostgreSQL cluster and runs 19 integration/security check groups, including actual HTTP requests, concurrency, rollback, RLS and database restart. `test:accounts` runs ten additional real PostgreSQL signup/login/session checks. No hosted database or Supabase project is assumed. Development PostgreSQL binaries are a dev dependency, not a production database server.
+`npm test` runs the original 41 tests plus seven security/authentication tests (48 total). `test:database` creates a disposable real PostgreSQL cluster and runs 19 integration/security check groups, including actual HTTP requests, concurrency, rollback, RLS and database restart. `test:accounts` runs ten additional real PostgreSQL signup/login/session checks. No hosted database or Supabase project is assumed. Development PostgreSQL binaries are a dev dependency, not a production database server.
 
 The original context/workflow demos and API scenarios deliberately use synthetic, unauthenticated **demo factories**. For the old dashboard and the 21 live HTTP scenarios:
 
@@ -61,3 +62,5 @@ The legacy walkthrough and its 20 curl requests are in [agent-operations.md](doc
 `npm start` defaults to secure mode and fails if the database or managed authentication is not configured. There is no automatic fallback. See [Phase 7 architecture, setup, API and remaining controls](docs/phase-7.md).
 
 This is a production-oriented foundation, not a completed production deployment. Hosted PostgreSQL/Supabase verification, SMTP/email delivery, password recovery UI, social/phone login, MFA, distributed abuse controls, backup/restore drills and deployment operations remain pending. Supabase email identity is validated server-side; user-editable metadata never authorizes a role or tenant.
+
+Continue with the [focused Supabase setup](docs/supabase-setup.md) and [prioritized MVP readiness gaps](docs/mvp-readiness.md). `npm run check:supabase` performs a read-only hosted configuration check after private environment setup. `test:supabase` exercises the managed-auth boundary using a simulated provider and real PostgreSQL, not live Supabase. Managed sessions are now bounded to the provider token lifetime (maximum eight hours); local demo sessions remain eight hours.

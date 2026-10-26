@@ -49,15 +49,28 @@ export class AccountAuth {
     let response;
     try { response=await this.fetch(`${this.config.url}/auth/v1/${path}`, { method:body?'POST':'GET', headers:{apikey:this.config.key,'Content-Type':'application/json',...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})}, ...(body?{body:JSON.stringify(body)}:{}), signal:AbortSignal.timeout(10000) }); }
     catch { throw fail(503,'Sign-in provider is unavailable. Try again later.'); }
-    const value=await response.json();
-    if(!response.ok) throw fail(response.status===429?429:401,'Unable to sign in. Check your email, password and email verification.');
+    if (!response.ok) {
+      const status = response.status === 429 ? 429 : response.status >= 500 ? 503 : 401;
+      throw fail(status, status === 503 ? 'Sign-in provider is unavailable. Try again later.' : 'Unable to sign in. Check your email, password and email verification.');
+    }
+    let value;
+    try { value = await response.json(); } catch { throw fail(503, 'Invalid sign-in provider response.'); }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw fail(503, 'Invalid sign-in provider response.');
     return value;
+  }
+  async verifyProviderSettings() {
+    const settings = await this.provider('settings');
+    if (settings.external?.email !== true || settings.mailer_autoconfirm !== false) {
+      throw fail(503, 'Enable email sign-in and email confirmation in Supabase before using Lookout.');
+    }
+    return settings;
   }
   async signup(input) {
     const {email,password}=validateLogin(input);
     const name=typeof input.name==='string'?input.name.trim():'';
     if(!name || name.length>200) throw fail(400,'Enter your name (at most 200 characters).');
     if(this.config.provider==='supabase') {
+      await this.verifyProviderSettings();
       await this.provider('signup',{email,password});
       return { message:'Check your email to verify your account, then sign in.' };
     }
@@ -68,11 +81,17 @@ export class AccountAuth {
   }
   async login(input) {
     const {email,password}=validateLogin(input);
-    let account;
+    let account, deadline;
     if(this.config.provider==='supabase') {
+      await this.verifyProviderSettings();
+      const started = Date.now();
       const session=await this.provider('token?grant_type=password',{email,password});
+      if (typeof session.access_token !== 'string' || !session.access_token.trim()
+        || !Number.isSafeInteger(session.expires_in) || session.expires_in < 1) throw fail(503, 'Invalid sign-in provider session.');
       const user=await this.provider('user',undefined,session.access_token);
-      if(!user.id || user.email?.toLowerCase()!==email || !user.email_confirmed_at) throw fail(401,'Verify your email before signing in.');
+      if(typeof user.id !== 'string' || !user.id || typeof user.email !== 'string' || user.email.toLowerCase()!==email || !user.email_confirmed_at) throw fail(401,'Verify your email before signing in.');
+      deadline = started + Math.min(28800, session.expires_in) * 1000;
+      if (deadline <= Date.now()) throw fail(401, 'Sign-in expired. Sign in again.');
       // Provider-verified subject only. User metadata never sets tenant or role.
       const {rows:[result]}=await this.pool.query('SELECT lookout.register_account($1,$2,$3,$4,$5) AS id',['supabase',user.id,email,email.slice(0,200),null]);
       account=result.id;
@@ -83,8 +102,13 @@ export class AccountAuth {
       if(!record || !timingSafeEqual(actual,Buffer.from(digest,'hex'))) throw fail(401,'Email or password is incorrect.');
       account=record.id;
     }
+    const lifetime = deadline === undefined ? 28800 : Math.floor((deadline - Date.now()) / 1000);
+    if (lifetime < 1) throw fail(401, 'Sign-in expired. Sign in again.');
     const token=randomBytes(32).toString('base64url');
-    try { await this.pool.query('SELECT lookout.start_session($1,$2)',[account,tokenHash(token)]); }
+    try {
+      if (this.config.provider === 'supabase') await this.pool.query('SELECT lookout.start_supabase_session($1,$2,$3)', [account,tokenHash(token),lifetime]);
+      else await this.pool.query('SELECT lookout.start_session($1,$2)',[account,tokenHash(token)]);
+    }
     catch (error) { if(error.code==='P0002') throw fail(401,'This account is unavailable.'); throw error; }
     return token;
   }

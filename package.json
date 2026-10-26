@@ -17,6 +17,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "test:database": "node scripts/check-database.mjs",
     "demo:secure": "node scripts/local-database.mjs",
+    "check:supabase": "node scripts/check-supabase.mjs",
+    "test:supabase": "node scripts/check-supabase-integration.mjs",
     "test:accounts": "node scripts/check-accounts.mjs",
     "test:legacy-curl": "node scripts/check-legacy-curl.mjs"
   },
