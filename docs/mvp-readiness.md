@@ -1,5 +1,8 @@
 # Focused MVP readiness: first 10K users
 
+> Integration update: follow [deployment-readiness.md](deployment-readiness.md) for migration 005, separate identity/runtime credentials, bundled TLS CA, and public-release gates. The material below records the earlier foundation and may describe the superseded tenant-setting model. Hosted 005 has not been applied.
+
+
 10K registered users is different from 10K simultaneous writers. No load test has been run and this branch makes no capacity claim. Correctness checks demonstrate specific conflict handling, not a throughput ceiling.
 
 | Priority | Next step | Why / acceptance evidence |

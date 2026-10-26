@@ -1,5 +1,8 @@
 # Supabase Auth and PostgreSQL: focused setup
 
+> Integration update: follow [deployment-readiness.md](deployment-readiness.md) for migration 005, separate identity/runtime credentials, bundled TLS CA, and public-release gates. The material below records the earlier foundation and may describe the superseded tenant-setting model. Hosted 005 has not been applied.
+
+
 This branch continues Phase 7 commit `01bcf3d`, not the older `main`. It preserves the existing inventory engine, transactional persistence, audit trail, tenant isolation and explicit local demo. No Google, Apple or phone sign-in is required.
 
 ## What is ready, and what is waiting

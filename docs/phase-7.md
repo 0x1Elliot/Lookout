@@ -1,5 +1,8 @@
 # Phase 7: database and backend security foundation
 
+> Integration update: follow [deployment-readiness.md](deployment-readiness.md) for migration 005, separate identity/runtime credentials, bundled TLS CA, and public-release gates. The material below records the earlier foundation and may describe the superseded tenant-setting model. Hosted 005 has not been applied.
+
+
 ## Scope and architecture
 
 The branch starts from verified GitHub `main` at `bdf434364449f05553090714eb13d17abb7d9223`. Work was isolated from the original `/Users/elliotwatson/Lookout` checkout. No push, remote PR creation or main merge is part of this change.
