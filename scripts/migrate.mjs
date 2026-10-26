@@ -11,6 +11,15 @@ try {
   await client.query("SELECT pg_advisory_xact_lock(7001007)");
   await client.query('CREATE TABLE IF NOT EXISTS public.lookout_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())');
   await client.query('REVOKE ALL ON public.lookout_migrations FROM PUBLIC');
+  // Supabase defaults can grant API roles rights independently of PUBLIC.
+  // Restrict only this ledger; leave project-wide defaults and other tables alone.
+  await client.query(`DO $$ DECLARE api_role text; BEGIN
+    FOREACH api_role IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=api_role) THEN
+        EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE public.lookout_migrations FROM %I',api_role);
+      END IF;
+    END LOOP;
+  END $$`);
   for (const name of ['001_foundation.sql', '002_runtime.sql', '003_accounts.sql', '004_supabase_session_lifetime.sql', '005_session_bound_tenants.sql']) {
     const sql = await readFile(new URL(`../server/db/migrations/${name}`, import.meta.url), 'utf8');
     const hash = createHash('sha256').update(sql).digest('hex');

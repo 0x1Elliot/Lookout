@@ -47,6 +47,9 @@ audit rollback and durable retry after database restart.
    `MIGRATION_DATABASE_URL`. The runner verifies existing checksums and adds only
    005; 001–004 are not edited or reapplied. A transaction/advisory lock covers the
    change. The migration does not rewrite application records.
+   The separately reviewed ledger hardening also revokes named Supabase API-role
+   rights on `public.lookout_migrations`; include that table-only permission change
+   in hosted approval. See `docs/migration-history-permissions.md`.
 3. After separate approval, provision a restricted identity LOGIN member:
 
    ```sql

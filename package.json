@@ -25,7 +25,8 @@
     "test:tenant-boundary": "node scripts/check-tenant-boundary.mjs",
     "test:deployment": "node scripts/check-deployment.mjs",
     "test:migration-upgrade": "node scripts/check-migration-upgrade.mjs",
-    "test:pool-recovery": "node scripts/check-pool-recovery.mjs"
+    "test:pool-recovery": "node scripts/check-pool-recovery.mjs",
+    "test:migration-permissions": "node scripts/check-migration-permissions.mjs"
   },
   "dependencies": {
     "pg": "8.23.1"
