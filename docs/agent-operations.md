@@ -1,3 +1,5 @@
+> Historical Phase 6 walkthrough: run only with explicit `LOOKOUT_MODE=demo` (`npm run start:demo`). Phase 7 secure setup and current security controls are in [phase-7.md](phase-7.md). The self-reported identities and in-memory limits below describe legacy demo mode only.
+
 # Lookout Agent Operations — local walkthrough
 
 Developed on `feature/agent-operations-dashboard` from Phase 6 `ceb840c`, following Phase 5 `fac4216` and Phase 4 `71e5802`. The repository remote is `https://github.com/0x1Elliot/Lookout.git`; ownership and authenticated admin access were verified before integration.
@@ -10,7 +12,7 @@ To start it again:
 
 ```sh
 cd /Users/elliotwatson/Lookout
-PORT=4174 npm start
+PORT=4174 npm run start:demo
 ```
 
 Keep that terminal open. Open the URL above. Browser inventory belongs to the exact origin: inventory saved on port 4173 will not automatically appear on port 4174.

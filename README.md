@@ -1,73 +1,63 @@
 # Lookout
 
-Lookout is an inventory visibility and reconciliation prototype. This first phase is deterministic and runs locally in a browser.
+Lookout records inventory, shelf-restock tasks, and a deterministic four-stage discrepancy workflow: detection → reconciliation → human review → inventory action. Phase 7 adds a PostgreSQL backend, normal email signup/login, server-owned inventory, tenant isolation, and durable audit/idempotency records. No Anthropic calls are made.
 
-## Run it
+## Start the working local demo
 
-Requires Node.js 22.21 or newer. From this folder:
-
-1. Run `npm start`.
-2. Open the local address printed in the terminal (by default `http://127.0.0.1:4173`).
-3. Add an item using its real recorded unit count and storage location.
-4. Begin a shelf restock. The selected quantity is subtracted immediately and a task appears with the remaining-units calculation.
-5. Choose **Returned** to add those units back, or **Shelf restocked** to complete the task while keeping the deduction.
-
-Inventory records and task history are stored in this browser on this device. Clearing this browser's site data removes them. This prototype does not yet synchronize between devices or estimate fulfillment timing.
-
-## Phase 3 inventory model
-
-The browser keeps four related records: inventory items (name, location reference, and units on hand), locations (reusable names), restock tasks (item/location snapshots, quantity before and after, and pending/returned/shelf-restocked status), and activity entries (a separate history of additions and task actions). Reusing a location name links another inventory item to the same location.
-
-On first load after this model update, earlier Phase 1 records are converted in place and the original saved text is retained in this browser under `lookout.inventory.v1.before-phase-3`. The current `lookout.inventory.v1` key stays local to this browser; no database or network sync is added. Restock tasks describe only shelf replenishment. Store detection and investigation, including theft review or reinstatement, are separate future workflows and are not modeled by these task statuses.
-
-## Verify inventory rules
-
-Run `npm test` to exercise the deterministic inventory and reconciliation rules with Node's built-in test runner.
-
-## Phase 5 agent context API
-
-`POST /api/agent/context` accepts a JSON body containing the complete Phase 3 inventory state (`schemaVersion: 2` with `inventoryItems`, `locations`, `restockTasks`, and `activity` arrays). It returns only `{ items, pendingTasks, recentActivity }`: item stock and location, pending shelf-restock tasks, and up to 20 recent activity records. The endpoint is read-only and does not call an AI provider. It returns `405` for other methods, `415` for a non-JSON content type, `400` for malformed JSON or unsupported/invalid inventory, and `413` when the request exceeds 1 MB. Successful responses use `application/json`.
-
-Run `npm run demo:agent-context` to exercise the same route handler in-process without opening a network port. The demo uses sample inventory and prints the response. `ANTHROPIC_API_KEY` remains optional and server-side; Phase 5 does not send it anywhere or expose it to browser assets.
-
-## Phase 6 four-agent workflow
-
-Phase 6 adds a deterministic workflow service with four separate, validated responsibilities. No Anthropic SDK or live model call is installed or used. The endpoint accepts one stage at a time at `POST /api/agent/workflow`; its request body is JSON, limited to 1 MB. `GET /api/agent/workflow` returns the current in-process workflow ledger.
-
-Stages and contracts:
-
-1. `intake`: `{ "stage": "intake", "event": { "eventId", "occurredAt", "source", "type": "inventory-count-observed", "itemId", "observedQuantity", "evidence": [{ "id", "kind", "description", "observedAt", "observedQuantity?" }] } }`. IDs and timestamps are preserved. `itemId` and `observedQuantity` may be `null` to represent unknowns. Evidence is required, and any reported count must match a count explicitly recorded in at least one evidence record. Repeating the same event ID and data is idempotent; conflicting reuse is rejected.
-2. `reconcile`: `{ "stage": "reconcile", "eventId", "inventory": <Phase 3 inventory state> }`. It returns a stable `case:<eventId>` case with observed facts, inferences, unknowns, evidence links, a review requirement, and—only for an evidenced count variance—a proposed set-count action. It never infers theft or the cause of a variance.
-3. `review`: `{ "stage": "review", "caseId", "decision": { "decisionId", "reviewerId", "reviewerName", "outcome", "rationale", "decidedAt?" } }`. Outcomes are `approve`, `reject`, or `request-more-information`. An approval is accepted only for an unresolved case with a supported action. Cases needing information can be routed for it but cannot be approved without an evidence-backed action. A follow-up decision after a request for information is appended to review history.
-4. `action`: `{ "stage": "action", "caseId", "request": { "actionRequestId" }, "inventory": <current Phase 3 inventory state> }`. Only a case approved through the same running server workflow can execute. Current item quantity and activity revision are rechecked. Repeating an action request returns its saved result; stale or conflicting requests are rejected. A verified count adjustment uses the deterministic inventory mutation and writes an auditable `inventory-count-adjusted` activity record. Its event, case, request, reviewer, count, and evidence references are included in subsequent context reads.
-
-Successful stage responses include the current workflow ledger. Validation errors return `400`; missing/unsupported media types return `415`; unapproved actions return `403`; duplicate conflicts or stale inventory return `409`. Workflow event, case, review, and action state is held in server memory for the lifetime of that server process. The action response also includes the updated inventory and context; a caller must save that inventory using the existing `saveInventoryState` convention for it to survive browser/server restarts. Existing browser inventory and restock persistence remains in `lookout.inventory.v1` on that browser/device.
-
-Run `npm run demo:agent-workflow` for a complete, port-free scenario. All demo input is explicitly synthetic: it records a manual count of five against eight recorded units, leaves the variance's cause unknown, records an explicit sample human approval, applies the corrected count, and reads the resulting audit entry through the Phase 5 context builder.
-
-This is a local prototype, not a production authorization or persistence system. The server binds to loopback and has no user authentication, so reviewer IDs/names are supplied by the caller and must not be treated as verified identities. Workflow state is lost on server restart, browser tabs do not share or lock local inventory, and the API has no durable database, role-based access control, external evidence verification, or live AI integration. Production deployment needs authenticated reviewer identity, durable transactional storage and idempotency, concurrency controls, evidence-source verification, and security review before any inventory actions are enabled.
-
-## Environment configuration
-
-At startup, the server reads a local `.env` file when one exists. `.env.example` documents `PORT` and the future server-side Anthropic key setting. `.env`, `.env.*`, and other local environment files are ignored by Git; `.env.example` is the only exception. No `.env` file or Anthropic key is needed for this phase.
-
-`PORT` must be a whole number from 1 to 65535; it defaults to `4173`. The optional Anthropic key is read only by the server configuration module. The app does not use the key yet, and the static web server serves only its explicit list of browser files, not `.env` or server source. When a later phase adds an API route, create `.env` locally and enter the key there; do not put it in browser code, commits, screenshots, or chat.
-
-Node's built-in `.env` loader is used, so no environment package or API integration is installed in this phase.
-
-
-## Development Notes
-
-Testing my first README update commit.
-
-## Agent Operations dashboard and direct API checks
-
-The localhost home page now exposes all four deterministic Phase 6 stages, explicit synthetic count evidence, human approval/rejection, and a separate approved inventory action with audit details. Existing inventory and restock controls remain available.
-
-See [the browser and API walkthrough](docs/agent-operations.md) for exact curl requests, expected statuses, and prototype authorization/persistence limits.
+Requires Node.js 22.21 or newer, npm, and a supported macOS/Linux/Windows host for the development PostgreSQL binary. Run as a normal user, not root.
 
 ```sh
-npm run test:agent-api
-npm run test:agent-api -- --url http://127.0.0.1:4174
-npm run api:fixtures
+npm ci
+npm run demo:secure
 ```
+
+Open http://127.0.0.1:4173. Choose **Create an account**, enter a test name/email and a new test password of at least 12 characters, then sign in. No developer access credential is needed. This command starts real PostgreSQL on loopback port 55432, applies migrations, and starts Lookout. Local database files and generated database passwords stay in ignored `work/local-db/`; rerunning the command preserves data. Stop with Ctrl-C.
+
+This is explicitly **local development authentication**: emails are not verified, and no email is sent. Do not use real passwords or sensitive data. Production refuses this authentication mode. Production uses Supabase Auth with verified email, described in [Phase 7 setup](docs/phase-7.md).
+
+## Try the four stages with two people/accounts
+
+1. Create an owner account. It becomes admin of its own new workspace, never another workspace.
+2. In **Invite a teammate**, enter a new test email and choose **Reviewer**, then **Prepare invitation**. No email is sent; share the site address yourself. Invite before that person signs up.
+3. As owner, click **Add sample item (8 units)** and **Run synthetic test event** with count 5. Stock stays at 8.
+4. Sign out. Create the invited reviewer account with that exact email, then sign in. Click **Load saved cases and refresh inventory**, select the awaiting-review case, enter a reason, and approve. Stock stays at 8.
+5. Sign out and sign back into the owner account. Load saved cases, select the approved case, and apply. Inventory becomes 5 and Activity shows the reviewed 8 → 5 adjustment.
+6. Reload or restart the server/database. Inventory and workflow survive. Load saved cases to resume. A stale case requires a **new event**, as in Phase 6.
+
+Browser tabs at the same origin share the login cookie. Use sign-out/sign-in to switch identities, or separate browser profiles. An admin cannot execute their own approval. Workers can change stock/run detection and actions; reviewers can read and review; admins can also prepare worker/reviewer invitations. Authorization is enforced on the server, regardless of visible controls.
+
+## Inventory and durability
+
+Add inventory with a name, unit count and storage location. Record received stock to add units. Beginning a shelf restock deducts units immediately; **Returned** restores them, and **Shelf restocked** keeps the deduction. The existing deterministic rules and four-agent contracts remain in use.
+
+Secure mode ignores caller-supplied inventory snapshots and never imports or deletes old browser storage. Existing browser-only records remain available in explicit legacy demo mode; importing them into production is a separate reviewed migration.
+
+## Verify
+
+```sh
+npm test
+npm run test:database
+npm run test:accounts
+npm run demo:agent-context
+npm run demo:agent-workflow
+npm run test:agent-api
+```
+
+`npm test` runs the original 41 tests plus six security/authentication tests (47 total). `test:database` creates a disposable real PostgreSQL cluster and runs 19 integration/security check groups, including actual HTTP requests, concurrency, rollback, RLS and database restart. `test:accounts` runs ten additional real PostgreSQL signup/login/session checks. No hosted database or Supabase project is assumed. Development PostgreSQL binaries are a dev dependency, not a production database server.
+
+The original context/workflow demos and API scenarios deliberately use synthetic, unauthenticated **demo factories**. For the old dashboard and the 21 live HTTP scenarios:
+
+```sh
+PORT=4174 npm run start:demo
+# In another terminal:
+npm run test:agent-api -- --url http://127.0.0.1:4174
+npm run test:legacy-curl
+```
+
+The legacy walkthrough and its 20 curl requests are in [agent-operations.md](docs/agent-operations.md). Those requests are for explicit demo mode only, not proof of production authentication.
+
+## Production setup and current limits
+
+`npm start` defaults to secure mode and fails if the database or managed authentication is not configured. There is no automatic fallback. See [Phase 7 architecture, setup, API and remaining controls](docs/phase-7.md).
+
+This is a production-oriented foundation, not a completed production deployment. Hosted PostgreSQL/Supabase verification, SMTP/email delivery, password recovery UI, social/phone login, MFA, distributed abuse controls, backup/restore drills and deployment operations remain pending. Supabase email identity is validated server-side; user-editable metadata never authorizes a role or tenant.
