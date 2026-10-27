@@ -15,7 +15,7 @@
     "api:fixtures": "node scripts/check-agent-api.mjs --fixtures",
     "start:demo": "LOOKOUT_MODE=demo node server.mjs",
     "db:migrate": "node scripts/migrate.mjs",
-    "test:database": "node scripts/check-database.mjs",
+    "test:database": "node scripts/check-database.mjs && node scripts/check-event-idempotency.mjs",
     "demo:secure": "node scripts/local-database.mjs",
     "check:supabase": "node scripts/check-supabase.mjs",
     "test:supabase": "node scripts/check-supabase-integration.mjs",
