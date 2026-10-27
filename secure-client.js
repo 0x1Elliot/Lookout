@@ -1,8 +1,8 @@
 // Session credentials stay in an HttpOnly cookie; application code never reads them.
-export async function connectBackend() {
+export async function connectBackend({ onAuthenticating = () => {} } = {}) {
   // Email confirmation may redirect with provider tokens; this app uses password login instead.
   if (/access_token=|refresh_token=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
-  const configResponse = await fetch('/api/config', { cache: 'no-store' });
+  const configResponse = await fetch('/api/config', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
   if (!configResponse.ok) throw new Error('Cannot determine backend security mode.');
   const config = await configResponse.json();
   if (config.mode === 'demo') {
@@ -48,28 +48,31 @@ export async function connectBackend() {
     try {
     const response = await fetch(path, { method: input ? 'POST' : 'GET', cache: 'no-store', headers: {
       ...(input ? { 'Content-Type': 'application/json' } : {}),
-    }, ...(input ? { body: JSON.stringify(input) } : {}) });
+    }, ...(input ? { body: JSON.stringify(input) } : {}), signal: AbortSignal.timeout(10000) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error ?? 'Request failed.'), { statusCode: response.status });
     if (result.revision !== undefined) revision = result.revision;
     return result;
     } finally { pending = false; }
   }
-  const initial = await new Promise(resolve => {
+  const initial = await new Promise((resolve, reject) => {
     form.addEventListener('submit', async event => {
       event.preventDefault(); button.disabled = true; toggle.disabled = true;
       try {
         const result = await request(signup ? '/api/auth/signup' : '/api/auth/login', { email: email.field.value, password: password.field.value, ...(signup ? { name: name.field.value } : {}) });
         password.field.value = '';
         if (signup) { status.textContent = result.message; return; }
-        const state = await request('/api/inventory'); identity = state.identity; section.remove(); main.hidden = false; resolve(state);
+        const state = await request('/api/inventory'); identity = state.identity; section.remove(); resolve(state);
       } catch (error) { status.textContent = error.message; }
       finally { button.disabled = false; toggle.disabled = false; }
     });
     void (async () => {
       try {
-        const state = await request('/api/inventory'); identity = state.identity; section.remove(); main.hidden = false; resolve(state);
-      } catch (error) { section.hidden = false; if (error.statusCode !== 401) status.textContent = error.message; }
+        const state = await request('/api/inventory'); identity = state.identity; section.remove(); resolve(state);
+      } catch (error) {
+        if (error.statusCode === 401) { section.hidden = false; onAuthenticating(); }
+        else { section.remove(); reject(new Error('Workspace initialization unavailable.')); }
+      }
     })();
   });
   const footer = document.querySelector('footer'); footer.textContent = `Signed in as ${identity.name} (${identity.role}). Inventory is saved on the server. `;
