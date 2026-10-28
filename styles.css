@@ -14,4 +14,5 @@
 .auth-shell { max-width: 480px; margin: 4rem auto; }
 .auth-shell h1 { font-size: 2rem; }
 .auth-shell > button { margin-top: 1rem; }
+#workspace-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
 [hidden] { display: none !important; }
