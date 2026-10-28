@@ -21,9 +21,17 @@
           <p class="intro-copy">Record a shelf restock, track the units in motion, and reconcile what happened.</p>
         </div>
         <div class="status-pill"><span></span> Local workspace</div>
+        <div class="status-pill">Simulated events only</div>
       </section>
 
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="panel dashboard" aria-labelledby="dashboard-title">
+        <p class="eyebrow">AGENT PROGRESS</p>
+        <h2 id="dashboard-title">What your agents are handling</h2>
+        <p class="panel-copy">Follow inventory activity, see which agent handled each step, and spot anything that needs a person. Prototype: simulated events only, with no live POS, ERP or warehouse connection.</p>
+        <div id="agent-dashboard">Loading agent activity…</div>
+      </section>
 
       <section class="panel agent-panel" aria-labelledby="agent-title">
         <p id="agent-mode" class="eyebrow">DETERMINISTIC LOCAL PROTOTYPE</p><h2 id="agent-title">Agent Operations</h2>

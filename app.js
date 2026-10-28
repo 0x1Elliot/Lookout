@@ -1,5 +1,6 @@
 import { connectBackend } from './secure-client.js';
 import { mountAgentOperations } from './agent-operations.js';
+import { mountAgentDashboard } from './dashboard.js';
 import {
   addInventoryItem,
   beginRestock,
@@ -227,3 +228,5 @@ agentOperations = mountAgentOperations({
   },
   disabled: Boolean(stateLoadError),
 });
+
+mountAgentDashboard({ container: document.getElementById('agent-dashboard') });

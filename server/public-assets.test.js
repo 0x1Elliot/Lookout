@@ -6,6 +6,9 @@ test('serves only the intended browser assets', () => {
   assert.equal(getPublicAsset('/'), 'index.html');
   assert.equal(getPublicAsset('/app.js'), 'app.js');
   assert.equal(getPublicAsset('/agent-operations.js'), 'agent-operations.js');
+  assert.equal(getPublicAsset('/dashboard.js'), 'dashboard.js');
+  assert.equal(getPublicAsset('/dashboard-adapter.js'), 'dashboard-adapter.js');
+  assert.equal(getPublicAsset('/dashboard-demo-data.js'), 'dashboard-demo-data.js');
   assert.equal(getPublicAsset('/inventory.js'), 'inventory.js');
   assert.equal(getPublicAsset('/inventory-storage.js'), 'inventory-storage.js');
   assert.equal(getPublicAsset('/styles.css'), 'styles.css');

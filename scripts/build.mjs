@@ -1,6 +1,6 @@
 import { mkdir, copyFile, readdir, rm, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-const assets=['index.html','app.js','secure-client.js','agent-operations.js','inventory.js','inventory-storage.js','styles.css'];
+const assets=['index.html','app.js','secure-client.js','agent-operations.js','dashboard.js','dashboard-adapter.js','dashboard-demo-data.js','inventory.js','inventory-storage.js','styles.css'];
 const root=new URL('../',import.meta.url), output=new URL('public/',root);
 const cert=await readFile(new URL('certs/supabase-root-ca.crt',root));
 if(createHash('sha256').update(cert).digest('hex')!=='700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7')throw new Error('Bundled Supabase CA differs from reviewed certificate.');
@@ -8,4 +8,4 @@ await rm(output,{recursive:true,force:true});await mkdir(output);
 for(const file of assets)await copyFile(new URL(file,root),new URL(file,output));
 const actual=await readdir(output);
 if(actual.length!==assets.length||!actual.every(file=>assets.includes(file)))throw new Error('Unexpected public build contents.');
-console.log('Production assets built: seven allowlisted browser files. Backend source, credentials, tests and local data excluded.');
+console.log('Production assets built: ten allowlisted browser files. Backend source, credentials, tests and local data excluded.');
