@@ -19,3 +19,19 @@ export function requireIdentifier(value, label) {
   }
   return value;
 }
+
+// Order-insensitive serialization for comparing JSON-like values by meaning.
+// Object keys are sorted recursively; array order is preserved because it can be meaningful.
+// PostgreSQL jsonb does not preserve object key order, so JSON.stringify alone is not
+// safe for comparing a stored document with a freshly built object.
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
+}
+
+export function canonicalJson(value) {
+  return JSON.stringify(canonicalize(value));
+}

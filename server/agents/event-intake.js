@@ -1,4 +1,4 @@
-import { requireIdentifier, readAgentWorkflowState } from './contracts.js';
+import { requireIdentifier, readAgentWorkflowState, canonicalJson } from './contracts.js';
 
 function validateEvidence(value) {
   if (!Array.isArray(value) || value.length === 0 || value.length > 50) {
@@ -69,7 +69,8 @@ export function intakeStoreEvent(input, workflowValue) {
   const event = validateStoreEvent(input);
   const prior = workflow.events.find((candidate) => candidate.eventId === event.eventId);
   if (prior) {
-    if (JSON.stringify(prior) !== JSON.stringify(event)) throw new Error('eventId already exists with conflicting event data.');
+    // Compare by meaning: a stored (jsonb) event may list its keys in a different order.
+    if (canonicalJson(prior) !== canonicalJson(event)) throw new Error('eventId already exists with conflicting event data.');
     return { workflow, event: prior, duplicate: true };
   }
   return {

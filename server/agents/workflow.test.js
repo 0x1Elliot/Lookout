@@ -10,6 +10,8 @@ import {
 import { createAgentInventoryContext } from '../agent-context.js';
 import { createDemoHandler } from '../../server.mjs';
 import { createAgentWorkflowService } from './workflow.js';
+import { intakeStoreEvent } from './event-intake.js';
+import { createAgentWorkflowState } from './contracts.js';
 
 let id = 0;
 const idFactory = () => `workflow-test-${++id}`;
@@ -261,4 +263,72 @@ test('workflow API rejects action attempts without an approved server-side case'
   });
   assert.equal(result.statusCode, 400);
   assert.match(result.body.error, /case was not found/);
+});
+
+// ---- Event-level idempotency: duplicates are compared by meaning, not by key order ----
+
+const reverseKeys = (value) => Array.isArray(value) ? value.map(reverseKeys)
+  : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).reverse().map((key) => [key, reverseKeys(value[key])]))
+    : value;
+// PostgreSQL jsonb returns object keys ordered by length, then bytewise. Reproduce that here
+// so the unit tests exercise the same shape a stored event has after a database round trip.
+const jsonbOrder = (value) => Array.isArray(value) ? value.map(jsonbOrder)
+  : value && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)).map((key) => [key, jsonbOrder(value[key])]))
+    : value;
+const stateWith = (...events) => ({ ...createAgentWorkflowState(), events });
+
+test('event intake treats the same event as a duplicate regardless of object key order, including nested evidence', () => {
+  const original = event();
+  assert.notDeepEqual(Object.keys(reverseKeys(original)), Object.keys(original), 'sanity: the reordered copy really lists keys differently');
+  assert.notDeepEqual(Object.keys(reverseKeys(original).evidence[0]), Object.keys(original.evidence[0]));
+  for (const [label, stored, submitted] of [
+    ['reversed keys submitted after original order', original, reverseKeys(original)],
+    ['original order submitted after reversed keys', reverseKeys(original), original],
+    ['jsonb-ordered stored document, original-order resubmission', jsonbOrder(original), original],
+    ['jsonb-ordered stored document, reversed resubmission', jsonbOrder(original), reverseKeys(original)],
+  ]) {
+    const result = intakeStoreEvent(submitted, stateWith(stored));
+    assert.equal(result.duplicate, true, label);
+    assert.equal(result.workflow.events.length, 1, label);
+    assert.strictEqual(result.event, stored, `${label}: the already-stored event is returned unchanged`);
+  }
+});
+
+test('event intake treats a repeated event ID with any meaningful difference as a conflict', () => {
+  const base = event();
+  const evidence = base.evidence[0];
+  const twoEvidence = event({ evidence: [evidence, { ...evidence, id: 'evidence-2', description: 'A second sheet.' }] });
+  const cases = [
+    ['different quantity (evidence kept consistent)', event({ observedQuantity: 6, evidence: [{ ...evidence, observedQuantity: 6 }] })],
+    ['different source', event({ source: 'test/another-source' })],
+    ['different itemId', event({ itemId: 'item-state-9' })],
+    ['itemId removed', event({ itemId: null })],
+    ['different occurredAt', event({ occurredAt: '2026-10-25T14:56:00.000Z' })],
+    ['different evidence id', event({ evidence: [{ ...evidence, id: 'evidence-9' }] })],
+    ['different evidence kind', event({ evidence: [{ ...evidence, kind: 'photo' }] })],
+    ['different evidence description', event({ evidence: [{ ...evidence, description: 'Changed text.' }] })],
+    ['different evidence observedAt', event({ evidence: [{ ...evidence, observedAt: '2026-10-25T14:56:00.000Z' }] })],
+    ['extra evidence record', twoEvidence],
+  ];
+  for (const [label, changed] of cases) {
+    for (const stored of [base, jsonbOrder(base)]) {
+      assert.throws(() => intakeStoreEvent(changed, stateWith(stored)), /conflicting event data/, label);
+      assert.throws(() => intakeStoreEvent(reverseKeys(changed), stateWith(stored)), /conflicting event data/, `${label} (reordered keys)`);
+    }
+  }
+  // Array order is preserved: the same evidence in a different order is a different submission.
+  assert.equal(intakeStoreEvent(twoEvidence, stateWith(jsonbOrder(twoEvidence))).duplicate, true);
+  const swapped = { ...twoEvidence, evidence: [...twoEvidence.evidence].reverse() };
+  assert.throws(() => intakeStoreEvent(swapped, stateWith(jsonbOrder(twoEvidence))), /conflicting event data/);
+});
+
+test('a conflicting repeat does not alter the stored event or the workflow state', () => {
+  const service = createAgentWorkflowService();
+  service.intake(event());
+  const before = service.getState();
+  assert.throws(() => service.intake(event({ source: 'test/another-source' })), /conflicting event data/);
+  assert.deepEqual(service.getState(), before);
+  assert.equal(service.intake(reverseKeys(event())).duplicate, true);
+  assert.deepEqual(service.getState(), before);
 });
