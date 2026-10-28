@@ -1,6 +1,7 @@
 import { connectBackend } from './secure-client.js';
 import { startWorkspace } from './startup.js';
 import { mountAgentOperations } from './agent-operations.js';
+import { mountAgentDashboard } from './dashboard.js';
 import {
   addInventoryItem,
   beginRestock,
@@ -129,12 +130,13 @@ function renderActivity() {
   }
 }
 
-let agentOperations;
+let agentOperations, dashboard;
 function render() {
   renderItems();
   renderTasks();
   renderActivity();
   agentOperations?.refresh();
+  void dashboard?.refresh();
   if (backend?.initial.identity.role === 'reviewer') document.querySelectorAll('#item-form input, #item-form button, #inventory-restock-form select, #inventory-restock-form input, #inventory-restock-form button, #restock-form select, #restock-form input, #restock-form button, .task-actions button').forEach(control => { control.disabled = true; });
 }
 
@@ -204,6 +206,7 @@ if (stateLoadError) {
 
 agentOperations = mountAgentOperations({
   getInventory: () => state,
+  onWorkflowChange: () => dashboard?.refresh(),
   canReview: !backend || ['reviewer', 'admin'].includes(backend.initial.identity.role),
   canAct: !backend || ['worker', 'admin'].includes(backend.initial.identity.role),
   canCreate: !backend || ['worker', 'admin'].includes(backend.initial.identity.role),
@@ -228,6 +231,7 @@ agentOperations = mountAgentOperations({
   },
   disabled: Boolean(stateLoadError),
 });
+dashboard = mountAgentDashboard({ container: document.getElementById('agent-dashboard') });
 }
 
 startWorkspace({ document, connect: connectBackend, mount: mountInventory });

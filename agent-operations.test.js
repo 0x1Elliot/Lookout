@@ -25,15 +25,15 @@ async function setup(t) {
   globalThis.Option = class extends Node { constructor(text, value) { super(); this.textContent = text; this.value = value; } };
   t.after(() => { globalThis.document = priorDocument; globalThis.Option = priorOption; });
   let inventory = addInventoryItem(createEmptyInventoryState(), { name: 'Synthetic UI test', count: 8, location: 'Test room' });
-  let failSave = false;
-  const controller = mountAgentOperations({ getInventory: () => inventory, updateInventory(next) { if (failSave) throw new Error('Storage unavailable'); inventory = next; }, addSample() {} });
+  let failSave = false, changes = 0;
+  const controller = mountAgentOperations({ onWorkflowChange() { changes++; }, getInventory: () => inventory, updateInventory(next) { if (failSave) throw new Error('Storage unavailable'); inventory = next; }, addSample() {} });
   nodes['agent-item'].value = inventory.inventoryItems[0].id; nodes['agent-count'].value = '5';
   nodes['agent-reviewer'].value = 'Test human'; nodes['agent-reason'].value = 'Synthetic count reviewed.';
   async function dispatch(id, name = 'click', outcome) {
     nodes[id].handlers[name]({ preventDefault() {}, submitter: { value: outcome } });
     await new Promise(resolve => setImmediate(resolve));
   }
-  return { nodes, dispatch, getInventory: () => inventory, failSave: value => { failSave = value; },
+  return { nodes, dispatch, changes: () => changes, getInventory: () => inventory, failSave: value => { failSave = value; },
     changeInventory() { inventory = restockInventoryItem(inventory, inventory.inventoryItems[0].id, 1); controller.refresh(); } };
 }
 test('dashboard uses real API stages and only changes inventory after explicit approval and apply', async t => {
@@ -72,4 +72,15 @@ test('dashboard can retry saving a successful action after browser storage failu
   ui.failSave(false); await ui.dispatch('agent-apply');
   assert.equal(ui.getInventory().inventoryItems[0].quantityOnHand, 5);
   assert.equal(ui.getInventory().activity.filter(a => a.type === 'inventory-count-adjusted').length, 1);
+});
+
+
+test('workflow changes refresh observers after reconciliation, review and application', async t => {
+  const ui = await setup(t);
+  await ui.dispatch('agent-event-form', 'submit');
+  assert.equal(ui.changes(), 1);
+  await ui.dispatch('agent-review-form', 'submit', 'approve');
+  assert.equal(ui.changes(), 2);
+  await ui.dispatch('agent-apply');
+  assert.equal(ui.changes(), 3);
 });
