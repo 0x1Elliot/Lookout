@@ -47,3 +47,19 @@ OBSERVED: In the sample run, the same reviewer ID was used to approve and apply 
 READ: The source contains a separate-approver check in secure mode.
 
 UNKNOWN: Secure-mode behavior, database-backed behavior, production database permissions, and production readiness have not been verified by this demo test.
+
+## Addendum: Duplicate Events on Current `main`
+
+OBSERVED: The demo workflow was re-run in a fresh scratch copy of `main` at commit `f53ef52` (after PRs #6, #7, #8, and #10 were merged), using the same fictional event for `SAMPLE-ITEM-1`. All four stages completed and matched the expected outcomes: recorded quantity 8, observed quantity 5, case `case:readme-evt-1`, final inventory 5, and one recorded action.
+
+OBSERVED: On `f53ef52`, sending the identical event again returned HTTP 200 with `duplicate: true`. No second event was recorded.
+
+OBSERVED: On `f53ef52`, sending the same event with its object keys in a different order also returned HTTP 200 with `duplicate: true`, and no second event was recorded.
+
+OBSERVED: On `f53ef52`, sending an event with the same `eventId` but different content (observed quantity 4 instead of 5) was rejected with HTTP 409 and the message `eventId already exists with conflicting event data.` The stored state did not change.
+
+READ: At commit `4e0b653`, duplicate events were compared with `JSON.stringify`, so key order mattered. On `main`, the comparison sorts object keys first (`canonicalJson` in `server/agents/contracts.js`). Array order is still significant.
+
+UNKNOWN: The key-reordered case was not re-run at `4e0b653`, so its behavior there is taken from the source and not from a run.
+
+UNKNOWN: This re-run used reused dependencies and Node.js v26.7.0. Dependency installation, the build, the test suite, Node.js 24.x, secure mode, and the database-backed path were not tested.
