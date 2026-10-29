@@ -240,3 +240,10 @@ Keep database passwords, session credentials, and private environment files outs
 **Lookout is built around a simple standard: when inventory changes, the people responsible should be able to explain what happened, why it happened, and who approved the next step.**
 
 See the current [integration and deployment readiness guide](docs/deployment-readiness.md) for session-bound tenant authorization, credential separation, migration 005 approval, and public-release checks.
+
+## Synthetic replenishment reviewer lab
+
+Use `npm run demo:replenishment` for an isolated, clearly labeled supermarket
+simulation with realistic fictional stock, low-stock proposals, one-time human
+approval, and capped standing policies. No real purchases or external ordering.
+See [the walkthrough and boundaries](docs/replenishment-demo.md).

@@ -26,7 +26,9 @@
     "test:deployment": "node scripts/check-deployment.mjs",
     "test:migration-upgrade": "node scripts/check-migration-upgrade.mjs",
     "test:pool-recovery": "node scripts/check-pool-recovery.mjs",
-    "test:migration-permissions": "node scripts/check-migration-permissions.mjs"
+    "test:migration-permissions": "node scripts/check-migration-permissions.mjs",
+    "demo:replenishment": "node scripts/demo-replenishment.mjs",
+    "test:replenishment": "node scripts/check-replenishment.mjs"
   },
   "dependencies": {
     "pg": "8.23.1"
