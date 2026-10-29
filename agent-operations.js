@@ -1,4 +1,4 @@
-export function mountAgentOperations({ getInventory, updateInventory, addSample, postWorkflow, loadWorkflow, canReview = true, canAct = true, canCreate = true, disabled = false }) {
+export function mountAgentOperations({ getInventory, updateInventory, addSample, postWorkflow, loadWorkflow, canReview = true, canAct = true, canCreate = true, disabled = false, onWorkflowChange = () => {} }) {
   const $ = id => document.getElementById(id);
   let record, event, actionResult, actionSnapshot, applied = false, busy = false;
   const stages = ['Detection', 'Reconciliation', 'Review Coordination', 'Inventory Action'];
@@ -31,7 +31,7 @@ export function mountAgentOperations({ getInventory, updateInventory, addSample,
     if (busy || disabled) return;
     busy = true; refresh();
     try { await operation(); } catch (error) { $('agent-status').textContent = `${error.message} ${postWorkflow ? 'Load saved cases and refresh inventory before continuing.' : 'Start a new test event if inventory changed or the server restarted.'}`; }
-    finally { busy = false; refresh(); }
+    finally { busy = false; refresh(); void onWorkflowChange(); }
   }
   function details(result) {
     $('agent-audit').textContent = JSON.stringify({ event, caseRecord: record, action: result?.action, activity: result?.inventory?.activity[0] }, null, 2);
