@@ -1,4 +1,5 @@
 import { connectBackend } from './secure-client.js';
+import { startWorkspace } from './startup.js';
 import { mountAgentOperations } from './agent-operations.js';
 import {
   addInventoryItem,
@@ -8,7 +9,7 @@ import {
   restockInventoryItem,
 } from './inventory.js';
 import { loadInventoryState, saveInventoryState } from './inventory-storage.js';
-const backend = await connectBackend();
+function mountInventory(backend) {
 let stateLoadError;
 let state = backend ? backend.initial.inventory : loadState();
 const itemForm = document.querySelector('#item-form');
@@ -227,3 +228,6 @@ agentOperations = mountAgentOperations({
   },
   disabled: Boolean(stateLoadError),
 });
+}
+
+startWorkspace({ document, connect: connectBackend, mount: mountInventory });

@@ -1,20 +1,25 @@
 import { Readable, Writable } from 'node:stream';
 import { isIP } from 'node:net';
 import { createApplication } from './application.js';
+import { startupFailure, reportStartupFailure } from './startup-diagnostics.js';
 
 // Bridge the Web-standard Vercel entry point to the same streaming Node handler
 // used locally. Limits, CSRF, authentication and authorization stay in one place.
-export function createDeploymentHandler({ env = process.env, initialize = createApplication } = {}) {
+export function createDeploymentHandler({ env = process.env, initialize = createApplication, log = console.error } = {}) {
   let initialized;
   return async function handle(request) {
     let app;
     try {
+      if (['NODE_ENV', 'LOOKOUT_MODE', 'LOOKOUT_AUTH'].some(key => !env[key])) {
+        throw startupFailure('configuration_missing');
+      }
       if (env.NODE_ENV !== 'production' || env.LOOKOUT_MODE !== 'secure' || env.LOOKOUT_AUTH !== 'supabase') {
-        throw new Error('Secure production configuration required.');
+        throw startupFailure('configuration_invalid');
       }
       initialized ??= initialize(env).catch(error => { initialized = undefined; throw error; });
       app = await initialized;
-    } catch {
+    } catch (error) {
+      reportStartupFailure(error, log);
       return Response.json({error:'Application configuration unavailable.'},{status:503,headers:{'Cache-Control':'no-store'}});
     }
     const url = new URL(request.url);

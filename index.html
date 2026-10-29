@@ -13,7 +13,14 @@
       <a class="brand" href="/" aria-label="Lookout home"><span class="brand-mark">L</span> Lookout</a>
       <span class="topbar-label">Inventory visibility</span>
     </header>
-    <main class="page-shell">
+    <section id="startup-panel" class="panel auth-shell" aria-labelledby="startup-title">
+      <h1 id="startup-title">Opening Lookout</h1>
+      <p id="startup-message" role="status" aria-live="polite">Connecting to your workspace…</p>
+      <button id="startup-retry" class="button button-primary" type="button" disabled hidden>Retry connection</button>
+      <noscript>JavaScript is required to use Lookout. Inventory controls remain unavailable until it is enabled.</noscript>
+    </section>
+    <main class="page-shell" hidden inert>
+      <fieldset id="workspace-controls" disabled aria-label="Inventory workspace">
       <section class="intro">
         <div>
           <p class="eyebrow">INVENTORY WORKSPACE</p>
@@ -98,6 +105,7 @@
         </div>
       </section>
       <footer>Lookout · Inventory changes are saved in this browser on this device.</footer>
+      </fieldset>
     </main>
   </body>
 </html>

@@ -2,6 +2,7 @@ const publicAssets = new Map([
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
   ['/app.js', 'app.js'],
+  ['/startup.js', 'startup.js'],
   ['/secure-client.js', 'secure-client.js'],
   ['/agent-operations.js', 'agent-operations.js'],
   ['/inventory.js', 'inventory.js'],
