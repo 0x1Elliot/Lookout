@@ -244,6 +244,7 @@ See the current [integration and deployment readiness guide](docs/deployment-rea
 ## Synthetic replenishment reviewer lab
 
 Use `npm run demo:replenishment` for an isolated, clearly labeled supermarket
-simulation with realistic fictional stock, low-stock proposals, one-time human
+simulation with a visible environment switcher, differentiated fictional fulfillment,
+supercenter, wholesale and supermarket stock, low-stock proposals, one-time human
 approval, and capped standing policies. No real purchases or external ordering.
 See [the walkthrough and boundaries](docs/replenishment-demo.md).

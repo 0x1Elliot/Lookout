@@ -8,27 +8,39 @@ Restart the process for a clean fixture. No existing inventory is loaded or repl
 
 ## Reviewer walkthrough
 
-1. Inspect two fictional supermarket tenants, each with four SKUs, storage bays,
-   unit costs, thresholds, targets and a fictional supplier. Prices are illustrative
-   US dollars, not quotes; taxes, freight and spoilage are outside this demonstration.
-2. Run low-stock detection. Oat drink (8 < 12) proposes 40 units / $99.60;
-   tomatoes (18 < 24) propose 54 / $69.66. Rice is healthy; milk's 24 confirmed
-   inbound units cover its low physical count (4 + 24 >= 10).
-3. Try **Agent: simulate order** on oats: it must be held for human review.
-   **Human: approve once**, then simulate. On-hand stays 8; projected becomes 48.
-   Retry simulation: exactly one audit order remains. This permission covers one
-   exact proposal, not future orders of the same product.
-4. For tomatoes, **Human: grant tomato policy**, then simulate without per-order
-   approval. The server checks an explicitly granted, tenant/SKU/supplier-scoped,
-   versioned policy, expiring in one hour, capped at 60 units and $100 per order.
-   Revoke before execution to see fallback to human review. A rejected proposal
-   cannot execute even with a standing policy. Grants never retroactively undo an
-   already simulated order.
-5. **Operator: synthetic receipt** is the only replenishment action changing
-   physical on-hand. Repeating it cannot double receive. This is invented receipt
-   evidence, not proof that any physical shipment arrived.
-6. Switch tenants: decisions, policies, inventory and audit are separate. The tenant
-   selector is a fixture switch for reviewers, not an authentication mechanism.
+1. Use the prominent **Store / warehouse environment** selector. The default is a
+   fictional fulfillment center inspired by Amazon's retail format, alongside a
+   fictional Walmart-inspired supercenter and Costco-inspired wholesale club.
+   These are not company locations, data, systems, supplier terms or integrations.
+   Original `market-east` / `market-west` supermarket fixtures remain available.
+2. Run low-stock detection. Each new environment has two low-stock proposals,
+   a healthy item and an item whose confirmed inbound covers its threshold:
+
+   | Fictional environment | Per-order proposal | Standing-policy example | Policy cap (1 hour) |
+   | --- | --- | --- | --- |
+   | Fulfillment | FC-BOX: 2,160 cartons / $1,836 | FC-TAPE: 720 rolls / $1,512 | 1,200 units / $1,800 |
+   | Supercenter | SC-CEREAL: 288 boxes / $806.40 | SC-WATER: 300 packs / $525 | 360 units / $600 |
+   | Wholesale | WC-RICE: 120 sacks / $2,268 | WC-TOWEL: 96 cases / $2,304 | 96 units / $900 |
+
+   Inventory displays sample zones, on-hand, inbound, projected quantities,
+   thresholds/targets, costs, suppliers, lead times, demand profiles and order
+   minimum/pack/maximum constraints. Proposals round up to complete supplier packs
+   and minimum orders; execution enforces minimum, multiple and maximum constraints.
+   Demand and lead times are illustrative context, not forecasts or delivery promises.
+3. Try **Agent: simulate order** before approval: it is held. Approve once and
+   simulate. Fulfillment cartons stay at 240 on-hand while projected becomes 2,400.
+   Retry: only one order is recorded. Approval covers that exact proposal.
+4. Grant the environment policy, then simulate its standing-policy SKU. Fulfillment
+   tape and supercenter water fit their caps. Wholesale towels deliberately exceed
+   the $900 cap and remain held until separately approved once. Revoke a policy
+   before execution to require review. Rejected proposals cannot execute.
+5. **Operator: synthetic receipt** alone changes physical stock. Repeat receipt
+   cannot double receive. These are invented receipt events, not shipment evidence.
+6. Switch environments: inventory, proposals, policies, decisions and audit remain
+   isolated. Switch back to see retained state. In-flight requests retain their
+   original scope; delayed responses cannot repaint a newer selection. Old proposal
+   controls cannot act in the new environment. The selector is a fixture switch,
+   not authentication. Use **Refresh state / audit** to inspect blocked audit events.
 7. Review audit identities, proposal references, authorization and policy versions.
    Pending proposals expire after 15 minutes; detect again to get fresh proposals
    requiring fresh authorization. Rejection suppresses automatic reproposal while
@@ -40,7 +52,16 @@ checks the actual loopback HTTP server. `npm run build` continues to publish onl
 existing allowlisted workspace assets. The demo has no purchasing client, credentials,
 webhooks, email sender or external network calls.
 
-## Inspection before implementation (2026-10-29)
+## Multi-environment increment (2026-10-29)
+
+Started from PR #8 head `94885b1` on a new feature branch, targeting
+`feature/synthetic-replenishment-demo` so the review shows only this increment.
+No production modules, migrations, restock semantics or asset allowlist changed.
+The lab runs only via its separate local server. Hosted previews of the ordinary
+app do not include this lab; no deployment command is part of this workflow.
+Existing repository hosting automation may react to a branch push independently.
+
+## Original inspection before PR #8 (2026-10-29)
 
 Base main was `0634958`, the merged event-idempotency fix (#5). Draft #6
 (`fix/startup-initialization`, `2e145d5`) and #7
