@@ -13,8 +13,15 @@ try {
  await call('approve',id);await call('execute',id);let result=await call('execute',id);assert.equal(result.data.items[0].onHand,8);assert.equal(result.data.items[0].projected,48);assert.equal(result.data.audit.filter(e=>e.event==='simulated-order').length,1);
  await call('grant');result=await call('execute',s.proposals[1].id);assert.equal(result.data.proposals[1].authorization,'standing-policy');
  await call('receive',id);result=await call('receive',id);assert.equal(result.data.items[0].onHand,48);
+ for(const tenant of ['fulfillment','supercenter','wholesale']){
+  const initial=(await call('read',null,tenant)).data;assert.equal(initial.proposals.length,0);
+  const active=(await call('detect',null,tenant)).data;assert.equal(active.proposals.length,2);const proposal=active.proposals[0];
+  assert.equal((await call('approve',id,tenant)).status,400);assert.equal((await call('execute',proposal.id,'market-east')).status,400);
+  await call('approve',proposal.id,tenant);await call('execute',proposal.id,tenant);await call('execute',proposal.id,tenant);
+  const current=(await call('read',null,tenant)).data;assert.equal(current.items[0].onHand,initial.items[0].onHand);assert.equal(current.audit.filter(e=>e.event==='simulated-order').length,1);
+ }
  assert.equal((await fetch(base+'/engine.js')).status,400);
  assert.equal((await fetch(base+'/state',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://example.com'},body:'{}'})).status,400);
  assert.equal((await call('read',null,'__proto__')).status,400);
  console.log('Synthetic HTTP demo verified: page, detection, denied forged approval, tenant isolation, one-time review, standing policy, idempotent order/receipt, projection, private engine, origin and tenant validation.');
-}finally{child.kill();await new Promise(resolve=>child.once('close',resolve));}
+}finally{if(child.exitCode===null){child.kill();await new Promise(resolve=>child.once('close',resolve));}}

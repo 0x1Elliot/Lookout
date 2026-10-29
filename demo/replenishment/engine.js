@@ -1,3 +1,4 @@
+import {environments} from './environments.js';
 // Isolated synthetic simulator. Never imported by production handlers.
 export function createDemo({ now = () => Date.now() } = {}) {
   const principals = new Map();
@@ -10,8 +11,9 @@ export function createDemo({ now = () => Date.now() } = {}) {
     ['MILK-2L','Whole milk, 2 L','Cold room / bay 2',4,10,24,319,'request-per-order'],
   ];
   for (const tenant of ['market-east','market-west']) {
-    tenants.set(tenant, { items: rows.map(([sku,name,location,onHand,threshold,target,unitCents,mode]) => ({sku,name,location,onHand,threshold,target,unitCents,mode,supplier:'Synthetic Pantry Supply',inbound:sku==='MILK-2L'?24:0})), proposals:[], policies:{}, audit:[] });
+    tenants.set(tenant, { items: rows.map(([sku,name,location,onHand,threshold,target,unitCents,mode]) => ({sku,name,location,onHand,threshold,target,unitCents,mode,supplier:'Synthetic Pantry Supply',inbound:sku==='MILK-2L'?24:0})), environment:{id:tenant,label:'Fictional neighborhood supermarket · '+tenant,profile:'Daily pantry demand; ambient and chilled storage.'}, policyLimits:{maxUnits:60,maxCents:10000}, proposals:[], policies:{}, audit:[] });
   }
+  for (const e of environments) tenants.set(e.id,{environment:{id:e.id,label:e.label,profile:e.profile},policyLimits:copy(e.policy),items:copy(e.items),proposals:[],policies:{},audit:[]});
   function principal(token) { const p=principals.get(token); if(!p) throw Error('Unknown demo capability'); return p; }
   function record(s,p,event,detail) { s.audit.push({at:new Date(now()).toISOString(),actor:p.id,event,...detail}); }
   function access(token, role) { const p=principal(token); if(role && p.role!==role) throw Error('Role denied'); return [p,tenants.get(p.tenant)]; }
@@ -21,7 +23,7 @@ export function createDemo({ now = () => Date.now() } = {}) {
   function policy(token,sku,enabled) {
     const [p,s]=access(token,'reviewer'); const item=s.items.find(i=>i.sku===sku);
     if(!item || item.mode!=='standing-policy' || typeof enabled!=='boolean') throw Error('Unsupported policy');
-    s.policies[sku]={enabled,version:(s.policies[sku]?.version??0)+1,grantedBy:p.id,expires:now()+3600000,maxUnits:60,maxCents:10000,supplier:item.supplier};
+    s.policies[sku]={enabled,version:(s.policies[sku]?.version??0)+1,grantedBy:p.id,expires:now()+3600000,...s.policyLimits,supplier:item.supplier};
     record(s,p,enabled?'policy-granted':'policy-revoked',{sku,version:s.policies[sku].version});
     return snapshot(token);
   }
@@ -38,7 +40,8 @@ export function createDemo({ now = () => Date.now() } = {}) {
       const outstanding=s.proposals.filter(r=>r.sku===i.sku&&r.status==='simulated').reduce((n,r)=>n+r.units,0);
       const projected=i.onHand+i.inbound+outstanding;
       if(projected>=i.threshold || s.proposals.some(r=>r.sku===i.sku&&(['pending','approved'].includes(r.status) || (r.status==='rejected' && r.onHand===i.onHand)))) continue;
-      const r={id:`${p.tenant}:${s.proposals.length+1}`,sku:i.sku,units:i.target-projected,cents:(i.target-projected)*i.unitCents,onHand:i.onHand,projected,supplier:i.supplier,status:'pending',created:now(),policyVersion:null};
+      const units=Math.ceil(Math.max(i.target-projected,i.minOrder??1)/(i.packSize??1))*(i.packSize??1);
+      const r={id:`${p.tenant}:${s.proposals.length+1}`,sku:i.sku,units,cents:units*i.unitCents,onHand:i.onHand,projected,supplier:i.supplier,status:'pending',created:now(),policyVersion:null};
       s.proposals.push(r); record(s,p,'low-stock-proposed',{proposal:r.id,stage:'Detection → Reconciliation',projected,threshold:i.threshold});
     }
     return snapshot(token);
@@ -58,8 +61,9 @@ export function createDemo({ now = () => Date.now() } = {}) {
     const i=s.items.find(i=>i.sku===r.sku); const pol=s.policies[r.sku];
     const standing=i.mode==='standing-policy' && pol?.enabled && pol.expires>now() && pol.supplier===r.supplier && r.units<=pol.maxUnits && r.cents<=pol.maxCents;
     const outstanding=s.proposals.filter(q=>q.sku===r.sku&&q.status==='simulated').reduce((n,q)=>n+q.units,0);
+    const constraints=r.units>=(i.minOrder??1) && r.units<=(i.maxOrder??Infinity) && r.units%(i.packSize??1)===0;
     const fresh=now()-r.created<900000 && i.onHand===r.onHand && i.onHand+i.inbound+outstanding===r.projected;
-    if(!fresh || !['pending','approved'].includes(r.status) || !(standing || r.status==='approved')) {
+    if(!constraints || !fresh || !['pending','approved'].includes(r.status) || !(standing || r.status==='approved')) {
       record(s,p,'execution-blocked',{proposal:id,reason:!fresh?'stale inventory or proposal':'human approval or valid standing policy required'});
       throw Error('Held for human review; approval/policy or fresh inventory required');
     }
