@@ -83,7 +83,7 @@ Lookout's Agent Operations workflow divides reconciliation into four explicit re
 | **1. Event intake** | Capture the reported count, source, time, item reference, and supporting evidence. | Conflicting evidence and invalid event data are rejected. Unknown information stays explicit. |
 | **2. Reconciliation** | Compare the observation with recorded inventory and assemble a case. | Facts, inferences, and unknowns remain distinct. A count correction requires supporting evidence. |
 | **3. Human review** | Approve, reject, or request more information, with a recorded rationale. | Unsupported corrections cannot be approved. In the authenticated platform, reviewer identity and time come from the server. |
-| **4. Inventory action** | Apply an approved correction and record the result. | Current stock is rechecked, repeated actions are controlled, and the approver cannot execute their own approval. |
+| **4. Inventory action** | Apply an approved correction and record the result. | Current stock is rechecked, repeated actions are controlled, and in the authenticated platform the approver cannot execute their own approval. |
 
 ### An example: eight recorded units, five observed
 
@@ -189,9 +189,9 @@ The product gives hiring managers a concrete way to evaluate how we approach a b
 
 ## Verification and current delivery status
 
-The integrated platform has passed 54 unit tests, 19 database/security check groups, 10 local account/session groups, and eight Auth-adapter integration groups using a simulated provider with real PostgreSQL. Migration 005 adds seven dedicated session-bound tenant authorization groups, a real database deployment-adapter check, and a migration-upgrade/idempotence check. Before migration 005, an additional 12 check groups passed against the hosted restricted PostgreSQL runtime account, including concurrency, rollback, tenant isolation, protected-record rejection, persistence across fresh connections, and synthetic-data cleanup.
+The integrated platform has passed its unit tests, 19 database/security check groups, 10 local account/session groups, and eight Auth-adapter integration groups using a simulated provider with real PostgreSQL. Migration 005 adds seven dedicated session-bound tenant authorization groups, a real database deployment-adapter check, and a migration-upgrade/idempotence check. Before migration 005, an additional 12 check groups passed against the hosted restricted PostgreSQL runtime account, including concurrency, rollback, tenant isolation, protected-record rejection, persistence across fresh connections, and synthetic-data cleanup.
 
-The original workflow demos, 21 API scenarios, and 20 documented curl checks also pass. Fixture-based Auth tests are distinct from real email-delivery and browser signup/login verification.
+The original workflow demos, API scenarios, and documented curl checks are described in the [original walkthrough](docs/agent-operations.md). Fixture-based Auth tests are distinct from real email-delivery and browser signup/login verification.
 
 **Delivery status:** the integrated implementation brings the original dashboard and four-stage workflow together with authenticated PostgreSQL persistence. Migration 005 and the Vercel adapter are tested locally. Hosted Supabase still has migrations 001–004; applying 005, provisioning the separate identity login, merging the integration branch, and deploying publicly require approval and further verification.
 
